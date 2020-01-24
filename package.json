@@ -1,10 +1,10 @@
 {
-  "name": "oada-jobs",
+  "name": "@oada/oada-jobs",
   "version": "0.1.0",
-  "description": "A framework for Trellis based micro services (job-queue)",
+  "description": "A library for oada job based microservices",
   "main": "index.js",
-  "repository": "https://gitlab.com/qlevercompany/trellis/oada-jobs",
-  "author": "Andrew Balmos <andrew@qlever.io>",
+  "repository": "https://gitlab.com/oada/oada-jobs",
+  "author": "Andrew Balmos <abalmos@purdue.edu>",
   "license": "MIT",
   "dependencies": {
     "@oada/oada-cache": "^3.0.1",
