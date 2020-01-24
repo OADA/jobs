@@ -149,7 +149,8 @@ export class JobQueue {
           tree: servicesJobsFailedTree,
           data: {
             _id: `resources/${id}`
-          }
+          },
+          headers: { 'Content-Type': 'application/json' }
         });
         this.trace(`moved job ${jobid} to failed queue (res ${id})`);
       } catch (e) {
