@@ -30,8 +30,8 @@ export class JobQueue {
       this.trace(`Queue size: ${this.q.size} pending: ${this.q.pending}`);
     });
 
-    oada.default.setDbPrefix('./.cache/');
-    this.con = oada.default.connect({
+    oada.setDbPrefix('./.cache/');
+    this.con = oada.connect({
       domain,
       token,
       cache: false // Just want `oada-cache` for its tree stuff
