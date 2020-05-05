@@ -1,15 +1,28 @@
 module.exports = {
-  extends: ['standard'],
-  plugins: [
-    'standard',
-    'prettier'
+  root: true,
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaVersion: 6,
+  },
+  env: {
+    node: true,
+  },
+  plugins: ['@typescript-eslint'],
+  extends: ['eslint:recommended'],
+  overrides: [
+    {
+      files: ['**/*.ts'],
+      env: {
+        node: false,
+        es6: true,
+      },
+      extends: [
+        'plugin:@typescript-eslint/eslint-recommended',
+        'plugin:@typescript-eslint/recommended',
+      ],
+      rules: {
+        '@typescript-eslint/no-use-before-define': 'off',
+      },
+    },
   ],
-  rules: {
-    semi: ['error', 'always'],
-    'no-extra-semi': 'error',
-    'space-before-function-paren': 'off',
-    'keyword-spacing': ['error', { before: true, after: true }],
-    'no-unused-vars': 'off',
-    'import/export': 'error'
-  }
 };
