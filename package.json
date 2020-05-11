@@ -2,31 +2,36 @@
   "name": "@oada/jobs",
   "version": "0.1.1",
   "description": "A library for oada job based microservices",
-  "main": "index.ts",
-  "repository": "https://gitlab.com/oada/jobs",
+  "source": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.js",
+  "files": [
+    "dist/**/*"
+  ],
+  "repository": "https://github.com/oada/jobs",
   "author": "Andrew Balmos <abalmos@purdue.edu>",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "scripts": {
-    "start": "ts-node index.ts",
+    "start": "ts-node src/index.ts",
     "build": "tsc",
     "watch": "tsc --watch"
   },
   "dependencies": {
-    "@oada/client": "oada/client#delete",
-    "@oada/oada-cache": "^3.1.2",
-    "@oada/types": "oada/types",
+    "@oada/client": "^1.0.0",
+    "@oada/types": "^1.0.6",
     "@sindresorhus/is": "^2.1.1",
-    "bluebird": "^3.7.2",
     "debug": "^4.1.1",
     "ksuid": "^1.2.0",
+    "moment": "^2.25.3",
     "p-queue": "^6.3.0",
-    "uuid": "^7.0.2"
+    "p-timeout": "^3.2.0"
   },
   "devDependencies": {
     "@types/debug": "^4.1.5",
+    "@types/node": "^13.13.5",
     "@typescript-eslint/eslint-plugin": "^2.29.0",
     "@typescript-eslint/parser": "^2.29.0",
-    "eslint": "^6.8.0",
+    "eslint": "^7.0.0",
     "prettier": "^2.0.5",
     "ts-node": "^8.8.2",
     "typescript": "^3.8.3"
