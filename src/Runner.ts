@@ -101,6 +101,7 @@ export class Runner {
       path: `/${this.job.oadaId}/updates`,
       data: {
         status,
+        time: moment().format(),
         meta,
       },
     });
