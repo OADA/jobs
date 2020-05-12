@@ -7,7 +7,7 @@ import { Json } from '.';
 
 export interface JobUpdate {
   status: string;
-  time: string;
+  time?: string;
   // TODO: Ask @bcherny/json-schema-to-typescript to use Json type
   meta?: unknown;
 }
