@@ -101,7 +101,7 @@ export class Runner {
       path: `/${this.job.oadaId}/updates`,
       data: {
         status,
-        time: moment().format(),
+        time: moment().toISOString(),
         meta,
       },
     });
@@ -117,7 +117,7 @@ export class Runner {
   public async finish<T extends JsonCompatible<T>>(
     status: 'success' | 'failure',
     result: T,
-    time: string | Moment | undefined,
+    time: string | Moment
   ): Promise<void> {
     // Update job status and result
     await this.oada.put({
@@ -129,7 +129,7 @@ export class Runner {
     await this.postUpdate(status, 'Runner finshed');
 
     // Link into success/failure event log
-    const date = (time ? moment(time) : moment()).format('YYYY-MM-DD')
+    const date = moment(time).format('YYYY-MM-DD');
     await this.oada.put({
       path: `/bookmarks/services/${this.service.name}/jobs-${status}/day-index/${date}`,
       data: {

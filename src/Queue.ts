@@ -75,7 +75,7 @@ export class Queue {
       await this.doJobs(r.data);
     } catch (e) {
       error(`[QueueId: ${this.id}] Failed to start WATCH, %O`, e);
-      throw new Error(`Failed to start watch ${this.id}: ${e}`);
+      throw new Error(`Failed to start watch ${this.id}`);
     }
   }
 
