@@ -18,7 +18,7 @@
     "watch": "tsc --watch"
   },
   "dependencies": {
-    "@oada/client": "^1.0.0",
+    "@oada/client": "^1.0.1",
     "@oada/types": "^1.0.6",
     "@sindresorhus/is": "^2.1.1",
     "debug": "^4.1.1",
