@@ -13,6 +13,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "start": "ts-node src/index.ts",
+    "prepare": "npm run build",
     "build": "tsc",
     "watch": "tsc --watch"
   },
