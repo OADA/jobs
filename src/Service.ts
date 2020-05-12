@@ -83,7 +83,7 @@ export class Service {
     info(`Ensure service queue tree exists`);
     await this.oada.get({ path: `/bookmarks/services/${this.name}/queues` })
     .catch(async e => {
-      if (!e || !e.response || e.response.status !== 404) throw e;
+      if (!e || e.status !== 404) throw e;
       trace(`/bookmarks/services/${this.name}/queues did not exist, creating...`);
       await this.oada.put({
         path: `/bookmarks/services/${this.name}/queues`,
