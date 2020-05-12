@@ -6,7 +6,7 @@ import Queues, {
 import { assert as assertQueue } from '@oada/types/oada/service/queue';
 
 import { serviceTree } from './tree';
-import { stripResource, debug, info, error, trace } from './utils';
+import { stripResource, debug, info, error } from './utils';
 
 import { Job } from './Job';
 import { Logger } from './Logger';
@@ -65,7 +65,7 @@ export class Service {
     name: string,
     domain: string,
     token: string,
-    concurrency: number,
+    concurrency: number
   ) {
     this.name = name;
     this.domain = domain;
@@ -81,15 +81,10 @@ export class Service {
    */
   public async start(): Promise<void> {
     info(`Ensure service queue tree exists`);
-    await this.oada.get({ path: `/bookmarks/services/${this.name}/queues` })
-    .catch(async e => {
-      if (!e || e.status !== 404) throw e;
-      trace(`/bookmarks/services/${this.name}/queues did not exist, creating...`);
-      await this.oada.put({
-        path: `/bookmarks/services/${this.name}/queues`,
-        data: {},
-        tree: serviceTree,
-      });
+    await this.oada.put({
+      path: `/bookmarks/services/${this.name}/queues`,
+      data: {},
+      tree: serviceTree,
     });
 
     info('Getting initial set of queues');
