@@ -148,31 +148,37 @@ export class Runner {
     });
 
     // Notify the status reporter if there is one
-    const frs = this.service.opts?.finishReporters;
-    if (frs) {
-      for (let i in frs) {
-        trace(`Checking finishReporters[${i}] for proper status`);
-        const r = frs[i];
-        if (r.status !== status) continue;
-        switch(r.type) {
-          case 'slack': 
-              trace(`Handling slack finishReporter, getting final job object from OADA`);
-              const finaljob = await Job.fromOada(this.oada, this.job.oadaId);
-              trace(`Have final job object from OADA, sending to slack finishReporter`);
-              await slackOnFinish({
-                config: r,
-                service: this.service,
-                finalpath,
-                job: finaljob,
-                jobId: this.jobId,
-                status
-              });  // get the whole final job object
-          break;
-          default: 
-            error('Only slack finishReporter is supported, not ', r.type);
-            continue;
-          }
-        }
+    try {
+      const frs = this.service.opts?.finishReporters;
+      if (frs) {
+        for (let i in frs) {
+          trace(`Checking finishReporters[${i}] for proper status`);
+          const r = frs[i];
+          if (r.status !== status) continue;
+          trace(`Have matching status, checking r.type === ${r.type}`);
+          switch(r.type) {
+            case 'slack': 
+                trace(`Handling slack finishReporter, getting final job object from OADA`);
+                const finaljob = await Job.fromOada(this.oada, this.job.oadaId);
+                trace(`Have final job object from OADA, sending to slack finishReporter`);
+                await slackOnFinish({
+                  config: r,
+                  service: this.service,
+                  finalpath,
+                  job: finaljob,
+                  jobId: this.jobId,
+                  status
+                });  // get the whole final job object
+            break;
+            default: 
+              error('Only slack finishReporter is supported, not ', r.type);
+              continue;
+          } // switch
+        } // for
+      } // if 
+    } catch(e: any) {
+      error('#finishReporters: ERROR: uncaught exception = ', e);
+      throw e;
     }
   }
 }
