@@ -22,7 +22,7 @@ export async function onFinish(p: FinishParams): Promise<void> {
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": `Service *${p.job.service}* failed jobid *${p.jobId}*`,
+          "text": `Service *${p.job.service}* on Domain *${domain}* failed jobid *${p.jobId}*`,
         }
       },
       {
