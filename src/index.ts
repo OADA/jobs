@@ -4,7 +4,7 @@ declare global {
   }
 }
 
-export { Service, WorkerFunction, JobId } from './Service';
+export { Service, WorkerFunction, JobId, FinishReporter } from './Service';
 export { Job } from './Job';
 export { Logger } from './Logger';
 

@@ -33,6 +33,16 @@ export interface Worker {
   work: WorkerFunction;
 }
 
+export interface FinishReporter {
+  type: "slack"; // add more over time
+  status: "success" | "failure";
+  posturl?: string;
+}
+export interface FinishReporters extends Array<FinishReporter>{};
+export interface ServiceOpts {
+  finishReporters: FinishReporters;
+}
+
 /**
  * Manages an @oada/jobs based service's queue endpoints. This Service class
  * manages:
@@ -45,6 +55,7 @@ export class Service {
   public domain: string;
   public concurrency: number;
   public token: string;
+  public opts: ServiceOpts | undefined;
 
   private oada: OADAClient;
   private clients: Map<Domain, OADAClient> = new Map();
@@ -65,12 +76,14 @@ export class Service {
     name: string,
     domain: string,
     token: string,
-    concurrency: number
+    concurrency: number,
+    opts?: ServiceOpts,
   ) {
     this.name = name;
     this.domain = domain;
     this.concurrency = concurrency;
     this.token = token;
+    this.opts = opts;
 
     info(`Connecting to ${this.domain}`);
     this.oada = new OADAClient({ domain, token, concurrency: 1 });

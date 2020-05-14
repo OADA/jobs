@@ -11,6 +11,7 @@ import { serviceTree } from './tree';
 import { JsonCompatible } from '.';
 
 import { Json } from '.';
+import { onFinish as slackOnFinish } from './finishReporters/slack';
 
 /**
  * Manages a job and updates the associated job object as needed
@@ -130,8 +131,9 @@ export class Runner {
 
     // Link into success/failure event log
     const date = moment(time).format('YYYY-MM-DD');
+    const finalpath = `/bookmarks/services/${this.service.name}/jobs-${status}/day-index/${date}`;
     await this.oada.put({
-      path: `/bookmarks/services/${this.service.name}/jobs-${status}/day-index/${date}`,
+      path: finalpath,
       data: {
         [this.jobId]: {
           _id: this.job.oadaId,
@@ -144,5 +146,30 @@ export class Runner {
     await this.oada.delete({
       path: `/bookmarks/services/${this.service.name}/jobs/${this.jobId}`,
     });
+
+    // Notify the status reporter if there is one
+    const frs = this.service.opts?.finishReporters;
+    if (frs) {
+      for (let i in frs) {
+        const r = frs[i];
+        if (r.status !== status) continue;
+        switch(r.type) {
+          case 'slack': 
+              const finaljob = await Job.fromOada(this.oada, this.job.oadaId);
+              await slackOnFinish({
+                config: r,
+                service: this.service,
+                finalpath,
+                job: finaljob,
+                jobId: this.jobId,
+                status
+              });  // get the whole final job object
+          break;
+          default: 
+            error('Only slack finishReporter is supported, not ', r.type);
+            continue;
+          }
+        }
+    }
   }
 }
