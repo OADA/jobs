@@ -176,7 +176,7 @@ export class Runner {
           } // switch
         } // for
       } // if 
-    } catch(e: any) {
+    } catch(e) {
       error('#finishReporters: ERROR: uncaught exception = ', e);
       throw e;
     }
