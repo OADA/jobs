@@ -37,10 +37,10 @@
   resolved "https://registry.yarnpkg.com/@jsdevtools/ono/-/ono-7.1.2.tgz#373995bb40a6686589a7fcfec06b0e6e304ef6c6"
   integrity sha512-qS/a24RA5FEoiJS9wiv6Pwg2c/kiUo3IVUQcfeM9JvsR6pM8Yx+yl/6xWYLckZCT5jpLNhslgjiA8p/XcGyMRQ==
 
-"@oada/client@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@oada/client/-/client-1.0.1.tgz#5b9daf87b92f4c0504de065d5f2ca0a94cf74eff"
-  integrity sha512-wAPqhf2RIGt3Uq5/GwNpGo5icKGntsmETJYKo5rpHaMT1dZ1nHwsye9IgkwgEILNRtdGRbM95WciD56LfNuHxg==
+"@oada/client@^1.0.2":
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/@oada/client/-/client-1.0.2.tgz#9fc6c4f514ce9c37c97445bf94f6da106d591211"
+  integrity sha512-qVwhCt9WXn+jEIFSFuNGKMilXPeNmD8Idal+4J/GcyapehK0FpZjkv7tByKiyOaZucwcXBL+pus8PGokckZ+FQ==
   dependencies:
     "@oada/types" "^1.0.6"
     debug "^4.1.1"
@@ -73,6 +73,11 @@
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-2.1.1.tgz#ceff6a28a5b4867c2dd4a1ba513de278ccbe8bb1"
   integrity sha512-/aPsuoj/1Dw/kzhkgz+ES6TxG0zfTMGLwuK2ZG00k/iJzYHTLCE8mVU8EPqEOp/lmxPoq1C1C9RYToRKb2KEfg==
+
+"@types/bluebird@^3.5.31":
+  version "3.5.31"
+  resolved "https://registry.yarnpkg.com/@types/bluebird/-/bluebird-3.5.31.tgz#d17fa0ec242b51c3db302481c557ce3813bf45cb"
+  integrity sha512-0PKlnDIxOh3xJHwJpVONR2PP11LhdM+QYiLJGLIbzMqRwLAPxN6lQar2RpdRhfIEh/HjVMgMdhHWJA0CgC5X6w==
 
 "@types/color-name@^1.1.1":
   version "1.1.1"
@@ -227,6 +232,11 @@ base-convert-int-array@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/base-convert-int-array/-/base-convert-int-array-1.0.1.tgz#5b4ddbfa72d2d3b5f75dd86cd32fe3dc8e7e81fe"
   integrity sha512-NWqzaoXx8L/SS32R+WmKqnQkVXVYl2PwNJ68QV3RAlRRL1uV+yxJT66abXI1cAvqCXQTyXr7/9NN4Af90/zDVw==
+
+bluebird@^3.7.2:
+  version "3.7.2"
+  resolved "https://registry.yarnpkg.com/bluebird/-/bluebird-3.7.2.tgz#9f229c15be272454ffa973ace0dbee79a1b0c36f"
+  integrity sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==
 
 brace-expansion@^1.1.7:
   version "1.1.11"
@@ -1169,6 +1179,11 @@ through@^2.3.6:
   version "2.3.8"
   resolved "https://registry.yarnpkg.com/through/-/through-2.3.8.tgz#0dd4c9ffaabc357960b1b724115d7e0e86a2e1f5"
   integrity sha1-DdTJ/6q8NXlgsbckEV1+Doai4fU=
+
+tiny-json-http@^7.1.2:
+  version "7.2.0"
+  resolved "https://registry.yarnpkg.com/tiny-json-http/-/tiny-json-http-7.2.0.tgz#1bc51d3c4ac0fe617b2c523319ca87d58934e703"
+  integrity sha512-blMwK3w6R+9/ZCMAlrAw4/yOmym6SNaF8LNHqjVnugtDAWNK/+HxK9AgEy8ynagRniMIiWhUcVst16Qumf66QQ==
 
 tmp@^0.0.33:
   version "0.0.33"
