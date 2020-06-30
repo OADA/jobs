@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.js",
   "files": [
-    "dist/**/*"
+    "dist/"
   ],
   "repository": "https://github.com/oada/jobs",
   "author": "Andrew Balmos <abalmos@purdue.edu>",
