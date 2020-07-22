@@ -20,7 +20,7 @@ export const serviceTree = {
           },
         },
         'jobs-failure': {
-          _type: 'application/vnd.oada.service.jobs-failed+json',
+          _type: 'application/vnd.oada.service.jobs-failure+json',
           'day-index': {
             '*': {
               _type: 'application/vnd.oada.service.jobs+json',
