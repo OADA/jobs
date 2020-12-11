@@ -86,13 +86,14 @@ export class Service {
     this.opts = opts;
 
     info(`Connecting to ${this.domain}`);
-    this.oada = new OADAClient({ domain, token, concurrency: 1 });
+    this.oada = OADAClient.connect({ domain, token, concurrency: 1 });
   }
 
   /**
    * Start the service -- start and manage the configured queues
    */
   public async start(): Promise<void> {
+    await this.oada;
     info(`Ensure service queue tree exists`);
     await this.oada.put({
       path: `/bookmarks/services/${this.name}/queues`,
@@ -181,7 +182,7 @@ export class Service {
   public getClient(domain: string): OADAClient {
     let oada = this.clients.get(domain);
     if (!oada) {
-      oada = new OADAClient({
+      oada = await OADAClient.connect({
         domain: domain,
         concurrency: this.concurrency,
       });
