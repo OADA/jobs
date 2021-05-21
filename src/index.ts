@@ -25,4 +25,3 @@ export type JsonCompatible<T> = {
     ? never
     : JsonCompatible<T[P]>;
 };
-

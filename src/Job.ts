@@ -1,9 +1,7 @@
-import { OADAClient } from '@oada/client';
-import { assert as assertOADAJob } from '@oada/types/oada/service/job';
+import type { OADAClient } from '@oada/client';
+import OADAJob, { assert as assertOADAJob } from '@oada/types/oada/service/job';
 
-import OADAJob from '@oada/types/oada/service/job';
-
-import { Json } from '.';
+import type { Json } from '.';
 
 export interface JobUpdate {
   status: string;

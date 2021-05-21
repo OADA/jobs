@@ -1,15 +1,14 @@
 import { OADAClient } from '@oada/client';
-
 import Queues, {
   assert as assertQueues,
 } from '@oada/types/oada/service/queues';
 import { assert as assertQueue } from '@oada/types/oada/service/queue';
 
 import { serviceTree } from './tree';
-import { stripResource, debug, info, error } from './utils';
+import { stripResource, debug, info, error, warn } from './utils';
 
-import { Job } from './Job';
-import { Logger } from './Logger';
+import type { Job } from './Job';
+import type { Logger } from './Logger';
 import { Queue } from './Queue';
 
 export type Domain = string;
@@ -17,7 +16,8 @@ export type Type = string;
 export type QueueId = string;
 export type JobId = string;
 
-import { Json } from '.';
+import type { Json } from '.';
+
 export interface WorkerContext {
   jobId: string;
   log: Logger;
@@ -34,11 +34,11 @@ export interface Worker {
 }
 
 export interface FinishReporter {
-  type: "slack"; // add more over time
-  status: "success" | "failure";
+  type: 'slack'; // add more over time
+  status: 'success' | 'failure';
   posturl?: string;
 }
-export interface FinishReporters extends Array<FinishReporter>{};
+export interface FinishReporters extends Array<FinishReporter> {}
 export interface ServiceOpts {
   finishReporters: FinishReporters;
 }
@@ -77,7 +77,7 @@ export class Service {
     domain: string,
     token: string,
     concurrency: number,
-    opts?: ServiceOpts,
+    opts?: ServiceOpts
   ) {
     this.name = name;
     this.domain = domain;
@@ -85,7 +85,7 @@ export class Service {
     this.token = token;
     this.opts = opts;
 
-    info(`Connecting to ${this.domain}`);
+    info('Connecting to %s', this.domain);
     this.oada = new OADAClient({ domain, token, concurrency: 1 });
   }
 
@@ -93,7 +93,7 @@ export class Service {
    * Start the service -- start and manage the configured queues
    */
   public async start(): Promise<void> {
-    info(`Ensure service queue tree exists`);
+    info('Ensure service queue tree exists');
     await this.oada.put({
       path: `/bookmarks/services/${this.name}/queues`,
       data: {},
@@ -101,10 +101,13 @@ export class Service {
     });
 
     info('Getting initial set of queues');
-    const r = await this.oada.get({
+    const {
+      status,
+      data,
+    }: { status: number; data: unknown } = await this.oada.get({
       path: `/bookmarks/services/${this.name}/queues`,
       watchCallback: (change) => {
-        const queues = stripResource(change.body);
+        const queues: unknown = stripResource(change.body);
         switch (change.type) {
           // New/update queue
           case 'merge':
@@ -128,18 +131,20 @@ export class Service {
       },
     });
 
-    if (r.status !== 200) {
+    if (status !== 200) {
       throw new Error('Could not retrieve service queue list');
     }
 
-    stripResource(r.data);
-    assertQueues(r.data);
-    r.data['default-service-queue'] = {
+    stripResource(data);
+    assertQueues(data);
+    // @ts-ignore the Queue type is messed up
+    // because the schema abuse patternProperties
+    data['default-service-queue'] = {
       domain: this.domain,
       token: this.token,
     };
 
-    await this.doQueues(r.data);
+    await this.doQueues(data);
   }
 
   /**
@@ -168,7 +173,7 @@ export class Service {
     const worker = this.workers.get(type);
 
     if (!worker) {
-      error(`No worker registered for ${type}`);
+      error('No worker registered for %s', type);
       throw new Error(`No worker registered for ${type}`);
     }
 
@@ -195,18 +200,21 @@ export class Service {
    * Helper function to create and start a list of queues
    */
   private async doQueues(queues: Queues): Promise<void> {
-    for (const queueId in queues) {
-      const w = queues[queueId];
-      assertQueue(w);
+    for (const [queueId, w] of Object.entries(queues)) {
+      try {
+        assertQueue(w);
+        if (this.queues.has(queueId)) {
+          await this.queues.get(queueId)?.stop();
+        }
 
-      if (this.queues.has(queueId)) {
-        await this.queues.get(queueId)?.stop();
+        const queue = new Queue(this, queueId, w.domain, w.token);
+        await queue.start();
+
+        this.queues.set(queueId, queue);
+      } catch (e) {
+        warn('Invalid queue %s', queueId);
+        debug('Invalid queue %s: %O', queueId, e);
       }
-
-      const queue = new Queue(this, queueId, w.domain, w.token);
-      await queue.start();
-
-      this.queues.set(queueId, queue);
     }
   }
 }

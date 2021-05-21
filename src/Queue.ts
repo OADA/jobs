@@ -1,8 +1,8 @@
 import bluebird from 'bluebird';
-import { OADAClient } from '@oada/client';
+import type { OADAClient } from '@oada/client';
 import OADAJobs, { assert as assertJobs } from '@oada/types/oada/service/jobs';
 
-import { Service } from './Service';
+import type { Service } from './Service';
 import { Job } from './Job';
 import { Runner } from './Runner';
 
@@ -96,15 +96,19 @@ export class Queue {
    */
   private async doJobs(jobs: OADAJobs): Promise<void> {
     // Queue up the Runners in parallel
-    await bluebird.map(Object.keys(jobs), async (jobId) => {
-      // Fetch the job
-      const job = await Job.fromOada(this.oada, jobs[jobId]._id);
+    await bluebird.map(
+      Object.keys(jobs),
+      async (jobId) => {
+        // Fetch the job
+        const job = await Job.fromOada(this.oada, jobs[jobId]!._id);
 
-      // Instantiate a runner to manage the job
-      const runner = new Runner(this.service, jobId, job, this.oada);
+        // Instantiate a runner to manage the job
+        const runner = new Runner(this.service, jobId, job, this.oada);
 
-      trace(`[QueueId: ${this.id}] Starting runner for ${jobId}`);
-      await runner.run();
-    }, { concurrency: 100 });
+        trace(`[QueueId: ${this.id}] Starting runner for ${jobId}`);
+        await runner.run();
+      },
+      { concurrency: 100 }
+    );
   }
 }

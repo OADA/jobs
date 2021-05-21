@@ -1,16 +1,16 @@
 import moment, { Moment } from 'moment';
 import pTimeout from 'p-timeout';
-import { OADAClient } from '@oada/client';
+import type { OADAClient } from '@oada/client';
 
-import { Service } from './Service';
+import type { Service } from './Service';
 import { Job } from './Job';
 import { Logger } from './Logger';
 
 import { info, debug, error, trace } from './utils';
 import { serviceTree } from './tree';
-import { JsonCompatible } from '.';
+import type { JsonCompatible } from '.';
 
-import { Json } from '.';
+import type { Json } from '.';
 import { onFinish as slackOnFinish } from './finishReporters/slack';
 
 /**
@@ -151,33 +151,38 @@ export class Runner {
     try {
       const frs = this.service.opts?.finishReporters;
       if (frs) {
-        for (let i in frs) {
-          trace(`Checking finishReporters[${i}] for proper status`);
-          const r = frs[i];
-          if (r.status !== status) continue;
-          trace(`Have matching status, checking r.type === ${r.type}`);
-          switch(r.type) {
-            case 'slack': 
-                trace(`Handling slack finishReporter, getting final job object from OADA`);
-                const finaljob = await Job.fromOada(this.oada, this.job.oadaId);
-                trace(`Have final job object from OADA, sending to slack finishReporter`);
-                await slackOnFinish({
-                  config: r,
-                  service: this.service,
-                  finalpath,
-                  job: finaljob,
-                  jobId: this.jobId,
-                  status
-                });  // get the whole final job object
-            break;
-            default: 
-              error('Only slack finishReporter is supported, not ', r.type);
+        for (const [i, r] of Object.entries(frs)) {
+          trace('Checking finishReporters[%d] for proper status', i);
+          if (r.status !== status) {
+            continue;
+          }
+          trace('Have matching status, checking r.type === %s', r.type);
+          switch (r.type) {
+            case 'slack':
+              trace(
+                'Handling slack finishReporter, getting final job object from OADA'
+              );
+              const finaljob = await Job.fromOada(this.oada, this.job.oadaId);
+              trace(
+                'Have final job object from OADA, sending to slack finishReporter'
+              );
+              await slackOnFinish({
+                config: r,
+                service: this.service,
+                finalpath,
+                job: finaljob,
+                jobId: this.jobId,
+                status,
+              }); // get the whole final job object
+              break;
+            default:
+              error('Only slack finishReporter is supported, not %s', r.type);
               continue;
           } // switch
         } // for
-      } // if 
-    } catch(e) {
-      error('#finishReporters: ERROR: uncaught exception = ', e);
+      } // if
+    } catch (e) {
+      error('#finishReporters: ERROR: uncaught exception = %O', e);
       throw e;
     }
   }

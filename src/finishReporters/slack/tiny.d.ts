@@ -1,1 +1,1 @@
-declare module 'tiny-json-http'
+declare module 'tiny-json-http';
