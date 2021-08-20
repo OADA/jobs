@@ -128,9 +128,12 @@ export class Runner {
 
     // Anotate the Runner finishing
     await this.postUpdate(status, 'Runner finshed');
+    if (typeof time === 'string' && !isNaN(+time)) time = moment(+time, 'X');
 
     // Link into success/failure event log
+    console.log('time', time, typeof time);
     const date = moment(time).format('YYYY-MM-DD');
+    console.log('date', `/bookmarks/services/${this.service.name}/jobs-${status}/day-index/${date}`);
     const finalpath = `/bookmarks/services/${this.service.name}/jobs-${status}/day-index/${date}`;
     await this.oada.put({
       path: finalpath,
