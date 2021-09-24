@@ -37,7 +37,7 @@ export class Runner {
   }
 
   /**
-   * Runes the job's associated work function. This function is in charge of
+   * Runs the job's associated work function. This function is in charge of
    * detecting success failure and updating the Job object and event logs as
    * appropriate.
    */
@@ -52,12 +52,12 @@ export class Runner {
         if (update.status === this.job.status) {
           trace(`[Runner ${this.jobId}] Found job completion time.`);
 
-          return this.finish(this.job.status, {}, update.time);
+          return this.finish(this.job.status, null, update.time);
         }
       }
 
       trace(`[Runner ${this.jobId}] No completion time found. Using now.`);
-      return this.finish(this.job.status, {}, moment());
+      return this.finish(this.job.status, null, moment());
     }
 
     try {
@@ -121,9 +121,15 @@ export class Runner {
     time: string | Moment
   ): Promise<void> {
     // Update job status and result
+    const data;
+    if (result === null) {
+      data = { status }
+    } else {
+      data = { status, result }
+    }
     await this.oada.put({
       path: `/${this.job.oadaId}`,
-      data: { status, result },
+      data,
     });
 
     // Anotate the Runner finishing
