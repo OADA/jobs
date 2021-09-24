@@ -104,7 +104,7 @@ export class Service {
     const {
       status,
       data,
-    }: { status: number; data: unknown } = await this.oada.get({
+    }: { status: number; data?: unknown } = await this.oada.get({
       path: `/bookmarks/services/${this.name}/queues`,
       watchCallback: (change) => {
         const queues: unknown = stripResource(change.body);

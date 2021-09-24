@@ -52,12 +52,12 @@ export class Runner {
         if (update.status === this.job.status) {
           trace(`[Runner ${this.jobId}] Found job completion time.`);
 
-          return this.finish(this.job.status, null, update.time);
+          return this.finish(this.job.status, {}, update.time);
         }
       }
 
       trace(`[Runner ${this.jobId}] No completion time found. Using now.`);
-      return this.finish(this.job.status, null, moment());
+      return this.finish(this.job.status, {}, moment());
     }
 
     try {
@@ -121,17 +121,17 @@ export class Runner {
     time: string | Moment
   ): Promise<void> {
     // Update job status and result
-    const data;
+    let data = undefined as any;
     if (result === null) {
-      data = { status }
+      data = { status };
     } else {
-      data = { status, result }
+      data = { status, result };
     }
     await this.oada.put({
       path: `/${this.job.oadaId}`,
-      data,
+      data
     });
-
+    
     // Anotate the Runner finishing
     await this.postUpdate(status, 'Runner finshed');
     if (typeof time === 'string' && !isNaN(+time)) time = moment(+time, 'X');
