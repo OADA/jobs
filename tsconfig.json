@@ -16,5 +16,6 @@
     "forceConsistentCasingInFileNames": true,
     "rootDir": "src",
     "outDir": "dist"
-  }
+  },
+  "exclude": [ "test/**/*" ]
 }

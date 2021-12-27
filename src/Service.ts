@@ -4,7 +4,7 @@ import Queues, {
 } from '@oada/types/oada/service/queues';
 import { assert as assertQueue } from '@oada/types/oada/service/queue';
 
-import { serviceTree } from './tree';
+import { serviceTree as tree } from './tree';
 import { stripResource, debug, info, error, warn } from './utils';
 
 import type { Job } from './Job';
@@ -43,6 +43,9 @@ export interface ServiceOpts {
   finishReporters: FinishReporters;
 }
 
+
+export const defaultServiceQueueName = 'default-service-queue';
+
 /**
  * Manages an @oada/jobs based service's queue endpoints. This Service class
  * manages:
@@ -52,8 +55,11 @@ export interface ServiceOpts {
  */
 export class Service {
   public name: string;
-  public domain: string;
   public concurrency: number;
+  // You either need to give a domain/token for the main service, or an oada connection.
+  // Note that if you have multiple queues beyond the default service queue, you will get
+  // a separate oada connection for each.
+  public domain: string;
   public token: string;
   public opts: ServiceOpts | undefined;
 
@@ -66,47 +72,80 @@ export class Service {
   private workers: Map<Type, Worker> = new Map();
 
   /**
-   * Creates a Service
+   * Creates a Service.  Two possible call signatures:
+   *   - new Service(name, domain, token, concurrency, opts?) 
+   *   - new Service(name, oada, concurrency, opts?)
    * @param name Name of service
-   * @param domain Domain of configuration OADA store
-   * @param token Token for configuration OADA store
-   * @param concurrency Maximum number of in-flight requests per domain
+   * @param domain_or_oada Domain of configuration OADA store, or an existing OADA connection to use instead
+   * @param token_or_concurrency Token for configuration OADA store (if no OADA connection given), or concurrency as maximum number of in-flight requests per domain.
+   * @param concurrency_or_opts Maximum number of in-flight requests per domain (if no OADA connection given), or ServiceOpts if an oada connection was given
+   * @param opts If no OADA connection given, this is the ServiceOpts (finish reporter, etc)
    */
   constructor(
     name: string,
-    domain: string,
-    token: string,
-    concurrency: number,
+    domain_or_oada: string | OADAClient,
+    token_or_concurrency: string | number,
+    concurrency_or_opts?: number | ServiceOpts,
     opts?: ServiceOpts
   ) {
     this.name = name;
-    this.domain = domain;
-    this.concurrency = concurrency;
-    this.token = token;
-    this.opts = opts;
+    // new Service(name, domain, token, concurrency, opts?)
+    if (typeof domain_or_oada === 'string') {
+      this.domain = domain_or_oada as string;
+      this.token = token_or_concurrency as string;
+      this.concurrency = concurrency_or_opts as number;
+      this.opts = opts;
+      debug('Opening OADA connection from domain/token that were passed');
+      this.oada = new OADAClient({ domain: this.domain, token: this.token });
 
-    info('Connecting to %s', this.domain);
-    this.oada = new OADAClient({ domain, token, concurrency: 1 });
+    // new Service(name, oada, concurrency, opts?)
+    } else {
+      this.oada = domain_or_oada as OADAClient;
+      this.domain = this.oada.getDomain();
+      this.token = this.oada.getToken();
+      debug('Using oada connection passed to contructor');
+      this.concurrency = token_or_concurrency as number;
+      this.opts = concurrency_or_opts as ServiceOpts;
+    }
   }
 
   /**
    * Start the service -- start and manage the configured queues
    */
+  private watchRequestId: string | string[] = ''
+
   public async start(): Promise<void> {
+    const path = `/bookmarks/services/${this.name}/queues`;
     info('Ensure service queue tree exists');
-    await this.oada.put({
-      path: `/bookmarks/services/${this.name}/queues`,
-      data: {},
-      tree: serviceTree,
-    });
+    const exists = await this.oada.head({path}).then(()=>true).catch(() => false);
+    if (!exists) await this.oada.put({path, data: {}, tree});
 
     info('Getting initial set of queues');
-    const {
-      status,
-      data,
-    }: { status: number; data?: unknown } = await this.oada.get({
-      path: `/bookmarks/services/${this.name}/queues`,
-      watchCallback: (change) => {
+    const r = await this.oada.get({path});
+    if (r.status !== 200) {
+      throw new Error('Could not retrieve service queue list');
+    }
+    // Store the rev before we stripResource to start watch from later
+    const watchopts: { path: string, rev?: number } = { path };
+    if (r?.data && typeof r.data ==='object' && '_rev' in r.data && typeof r.data._rev === 'number') {
+      watchopts.rev = r.data._rev;
+    }
+
+    stripResource(r.data);
+    assertQueues(r.data);
+    // @ts-ignore the Queue type is messed up
+    // because the schema abuse patternProperties
+    r.data[defaultServiceQueueName] = {
+      domain: this.domain,
+      token: this.token,
+    };
+   await this.doQueues(r.data);
+
+    const { changes, requestId } = await this.oada.watch(watchopts);
+    this.watchRequestId = requestId;
+    // Run the change watcher as a detached async function (don't wait on it)
+    (async () => {
+      for await (const change of changes) {
         const queues: unknown = stripResource(change.body);
         switch (change.type) {
           // New/update queue
@@ -118,9 +157,10 @@ export class Service {
               debug('Received a change that was not a `Queues`, %O', e);
             }
             break;
-
+  
           // Stop watching queue
           case 'delete':
+            warn('WARNING: received delete for queues: ', queues, ', stopping them');
             assertQueues(queues);
             for (const queueId in queues) {
               this.queues.get(queueId)?.stop();
@@ -128,23 +168,23 @@ export class Service {
             }
             break;
         }
-      },
-    });
+      }
+      error('***ERROR***: Service for..await has exited from the watch and it should not');
+    })();
+  }
 
-    if (status !== 200) {
-      throw new Error('Could not retrieve service queue list');
+  public async stop(): Promise<void> {
+    // I'm not sure in what scenario requestid would be an array of strings, but that's its type.
+    let arr: string[];
+    if (Array.isArray(this.watchRequestId)) {
+      arr = this.watchRequestId;
+    } else {
+      arr = [ this.watchRequestId ];
     }
-
-    stripResource(data);
-    assertQueues(data);
-    // @ts-ignore the Queue type is messed up
-    // because the schema abuse patternProperties
-    data['default-service-queue'] = {
-      domain: this.domain,
-      token: this.token,
-    };
-
-    await this.doQueues(data);
+    // Stop all our watches:
+    await Promise.all(arr.map(requestid => this.oada.unwatch(requestid)));
+    // And stop all the queue's and their watches:
+    await this.stopQueues();
   }
 
   /**
@@ -207,7 +247,14 @@ export class Service {
           await this.queues.get(queueId)?.stop();
         }
 
-        const queue = new Queue(this, queueId, w.domain, w.token);
+        let queue: Queue;
+        // For default service queue, use the default oada connection (no need to clone)
+        if (queueId === defaultServiceQueueName) {
+          queue = new Queue(this, queueId, this.oada);
+        // Otherwise, let the queue clone it for the new domain and token
+        } else {
+          queue = new Queue(this, queueId, w.domain, w.token);
+        }
         await queue.start();
 
         this.queues.set(queueId, queue);
@@ -215,6 +262,17 @@ export class Service {
         warn('Invalid queue %s', queueId);
         debug('Invalid queue %s: %O', queueId, e);
       }
+    }
+  }
+
+  private async stopQueues(): Promise<void> {
+    try {
+      await Promise.all(Array.from(this.queues.keys())
+        .map(async (queueId: string) => this.queues.get(queueId)?.stop())
+      );
+    } catch (e) {
+      warn('Unable to stop queues');
+      debug('Unable to stop queue %0', e);
     }
   }
 }

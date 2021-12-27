@@ -1,5 +1,6 @@
 import type { OADAClient } from '@oada/client';
 import OADAJob, { assert as assertOADAJob } from '@oada/types/oada/service/job';
+import { error } from './utils';
 
 import type { Json } from '.';
 
@@ -42,13 +43,31 @@ export class Job {
    * @param id OADA resource ID of job
    */
   public static async fromOada(oada: OADAClient, oadaId: string): Promise<Job> {
-    const r = await oada.get({
+    let r = await oada.get({
       path: `/${oadaId}`,
     });
+    // There is an odd bug with tree puts that the resource could be empty the first time
+    // you get it b/c the change is emitted BEFORE the actual job data is written.
+    // Therefore, if this job does not pass the assertion, try getting it a second time
+    // before giving up on it.
+    try {
+      assertOADAJob(r.data);
+    } catch(e) {
+      // Try a second time...
+      r = await oada.get({
+        path: `/${oadaId}`,
+      });
+    }
 
+    // Now do the *real* assertion
     const job = r.data;
-    assertOADAJob(job);
+    try {
+      assertOADAJob(job);
+      return new Job(oadaId, job);
+    } catch(e) {
+      error('Job at '+oadaId+' FAILED OADAJob type assertion: ', job);
+      throw e;
+    }
 
-    return new Job(oadaId, job);
   }
 }

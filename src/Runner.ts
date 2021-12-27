@@ -65,8 +65,10 @@ export class Runner {
 
       const worker = this.service.getWorker(this.job.type);
 
+      trace('Posing update to start job');
       // Anotate the Runner finishing
       await this.postUpdate('started', 'Runner started');
+      trace('Update posted');
 
       // NOTE: pTimeout will reject after `worker.timeout` ms and attempt
       // `cancel()` the promise returned by `worker.work`; However, if that
@@ -100,11 +102,16 @@ export class Runner {
   public async postUpdate(status: string, meta: Json): Promise<void> {
     await this.oada.post({
       path: `/${this.job.oadaId}/updates`,
+      // since we aren't using tree, we HAVE to set the content type or permissions fail
+      contentType: serviceTree.bookmarks.services['*'].jobs['*']._type,
       data: {
         status,
         time: moment().toISOString(),
         meta,
       },
+    }).catch(e => {
+      error('FAILED TO POST UPDATE TO OADA at /'+this.job.oadaId+'/updates.  status = ', e.status);
+      throw e;
     });
   }
 
@@ -127,6 +134,7 @@ export class Runner {
     } else {
       data = { status, result };
     }
+    trace('[job ', this.jobId, ']: putting to job resource the final {status,result} = ', data);
     await this.oada.put({
       path: `/${this.job.oadaId}`,
       data
@@ -139,6 +147,7 @@ export class Runner {
     // Link into success/failure event log
     const date = moment(time).format('YYYY-MM-DD');
     const finalpath = `/bookmarks/services/${this.service.name}/jobs-${status}/day-index/${date}`;
+    trace('[job ',this.jobId,' ]: linking job to final resting place at ', finalpath);
     await this.oada.put({
       path: finalpath,
       data: {
@@ -146,10 +155,10 @@ export class Runner {
           _id: this.job.oadaId,
         },
       },
-      tree: serviceTree,
     });
 
     // Remove from job queue
+    trace('[job ',this.jobId,' ]: removing from jobs queue');
     await this.oada.delete({
       path: `/bookmarks/services/${this.service.name}/jobs/${this.jobId}`,
     });

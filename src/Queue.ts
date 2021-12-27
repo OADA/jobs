@@ -7,7 +7,7 @@ import { Job } from './Job';
 import { Runner } from './Runner';
 
 import { stripResource, error, info, debug, trace } from './utils';
-import { serviceTree } from './tree';
+import { serviceTree as tree } from './tree';
 
 /**
  * Manages watching of a particular job queue
@@ -16,79 +16,123 @@ export class Queue {
   private id: string;
   private oada: OADAClient;
   private service: Service;
-  private requestId?: string;
 
   /**
    * Creates queue watcher
    * @param service The `Service` which the watch is operating under
-   * @param domain The domain of the queue to watch
-   * @param token The token for the queue to watch
+   * @param domain_or_oada The domain of the queue to watch, or an existing OADA client to use
+   * @param token? The token for the queue to watch, or undefined if an OADA client was passed
    */
-  constructor(service: Service, id: string, domain: string, token: string) {
+  constructor(service: Service, id: string, domain_or_oada: string | OADAClient, token?: string) {
     this.id = id;
     this.service = service;
-    this.oada = service.getClient(domain).clone(token);
+    if (typeof domain_or_oada === 'string') {
+      this.oada = service.getClient(domain_or_oada).clone(token || '');
+    } else {
+      debug('[Queue ',id,']: Using default existing OADA connection for default queue');
+      this.oada = domain_or_oada;
+    }
   }
 
   /**
    * Opens the WATCH and begins procesing jobs
    */
+  private watchRequestId: string | string[] = '';
   public async start(): Promise<void> {
-    const path = `/bookmarks/services/${this.service.name}/jobs`;
+    const root = `/bookmarks/services/${this.service.name}`;
+    const jobspath = `${root}/jobs`;
+    const successpath = `${root}/jobs-success`;
+    const failurepath = `${root}/jobs-failure`;
 
     try {
       // Ensure the job queue exists
-      await this.oada.put({
-        path,
-        data: {},
-        tree: serviceTree,
+      await this.oada.head({ path: jobspath }).catch(async (e) => {
+        if (e.status !== 404) throw e;
+        await this.oada.put({path: jobspath, data: {}, tree });
       });
+      // Ensure the jobs-success queue exists
+      await this.oada.head({ path: successpath }).catch(async (e) => {
+        if (e.status !== 404) throw e;
+        await this.oada.put({path: successpath, data: {}, tree });
+      });
+      // Ensure the jobs-failure queue exists
+      await this.oada.head({ path: failurepath }).catch(async (e) => {
+        if (e.status !== 404) throw e;
+        await this.oada.put({path: failurepath, data: {}, tree });
+      });
+
 
       info(`[QueueId ${this.id}] Getting initial set of jobs`);
-      const r = await this.oada.get({
-        path,
-        watchCallback: (change) => {
-          if (change.type !== 'merge') {
-            return;
-          }
-
-          // catch error in callback to avoid nodejs crash on error
-          try {
-            const jobs = stripResource(change.body);
-            assertJobs(jobs);
-            this.doJobs(jobs);
-          } catch (e) {
-            debug('Received a change that was not a `Jobs`, %O', e);
-          }
-        },
-      });
-      info(`[QueueId ${this.id}] Started WATCH.`);
+      const r = await this.oada.get({path: jobspath});
 
       if (r.status !== 200) {
         throw new Error(
           `[QueueId ${this.id}] Could not retrieve job queue list`
         );
       }
+      // Store the rev before we stripResource to start watch from later
+      const watchopts: { path: string, rev?: number } = { path: jobspath };
+      if (r?.data && typeof r.data ==='object' && '_rev' in r.data && typeof r.data._rev === 'number') {
+        trace('[QueueId ',this.id,'] Initial jobs list at rev', r.data._rev,', starting watch from that point');
+        watchopts.rev = r.data._rev;
+      }
 
+      // Clean up the resource and grab all existing jobs to run them before starting watch
       trace(`[QueueId ${this.id}] Adding existing jobs`);
       stripResource(r.data);
       assertJobs(r.data);
       await this.doJobs(r.data);
+      trace(Object.keys(r.data).length, " jobs added and doJobs is complete, starting watch.");
+
+      // Watch will be started from rev that we just processed
+      const { changes, requestId } = await this.oada.watch(watchopts);
+      this.watchRequestId = requestId;
+      // Wrap for..await in async funciton that we do not "await";
+      (async () => {
+        for await (const change of changes) {
+          trace('[QueueId %s] received change: ', this.id, change);
+          if (change.type !== 'merge') continue;
+  
+          // catch error in callback to avoid nodejs crash on error
+          try {
+            const jobs = stripResource(change.body);
+            trace('[QueueId %s] jobs found in change:', this.id, Object.keys(jobs));
+            assertJobs(jobs);
+            this.doJobs(jobs);
+          } catch (e) {
+            debug('Received a change that was not a `Jobs`, %O', e);
+            // Shouldn't it fail the job?
+          }
+        }
+        error('***ERROR***: the for...await looking for changes has exited');
+      })();
+      info(`[QueueId ${this.id}] Started WATCH.`);
+
     } catch (e) {
       error(`[QueueId: ${this.id}] Failed to start WATCH, %O`, e);
       throw new Error(`Failed to start watch ${this.id}`);
     }
+    return;
   }
 
   /**
    * Closes the WATCH
    */
   public async stop(): Promise<void> {
-    if (this.requestId) {
-      info(`[QueueId: ${this.id}] Stopping WATCH`);
-      await this.oada.unwatch(this.requestId);
-      this.requestId = undefined;
+    // I'm not sure in what scenario requestid would be an array of strings, but that's its type.
+    let arr: string[];
+    if (Array.isArray(this.watchRequestId)) {
+      arr = this.watchRequestId;
+    } else {
+      arr = [ this.watchRequestId ];
     }
+    info(`[QueueId: ${this.id}] Stopping WATCH`);
+    // Stop all our watches:
+    await Promise.all(arr.map(requestid => {
+      if (requestid === '') return;
+      return this.oada.unwatch(requestid);
+    }));
+    this.watchRequestId = '';
   }
 
   /**
