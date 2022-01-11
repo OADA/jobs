@@ -100,6 +100,7 @@ export class Runner {
   public async postUpdate(status: string, meta: Json): Promise<void> {
     await this.oada.post({
       path: `/${this.job.oadaId}/updates`,
+      contentType: 'application/vnd.oada.service.jobs.1+json',
       data: {
         status,
         time: moment().toISOString(),
