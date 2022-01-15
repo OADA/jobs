@@ -7,6 +7,7 @@ declare global {
 export { Service, WorkerFunction, JobId, FinishReporter } from './Service';
 export { Job } from './Job';
 export { Logger } from './Logger';
+export { postJob } from './utils';
 
 export type Json =
   | null

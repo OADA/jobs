@@ -32,7 +32,7 @@
   },
   "packageManager": "yarn@3.0.1",
   "dependencies": {
-    "@oada/client": "^3.0.5",
+    "@oada/client": "^3.0.7",
     "@oada/oadaify": "^1.0.1",
     "@oada/types": "^1.5.1",
     "@sindresorhus/is": "^2.1.1",

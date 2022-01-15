@@ -6,6 +6,7 @@
     "sourceMap": true,
     "strict": true,
     "importsNotUsedAsValues": "error",
+    "strictPropertyInitialization": false,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -17,5 +18,8 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "exclude": [ "test/**/*" ]
+  "exclude": [
+    "test/**/*",
+    "dist/**/*"
+  ]
 }

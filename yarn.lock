@@ -128,11 +128,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oada/client@npm:^3.0.5":
-  version: 3.0.5
-  resolution: "@oada/client@npm:3.0.5"
+"@oada/client@npm:^3.0.7":
+  version: 3.0.7
+  resolution: "@oada/client@npm:3.0.7"
   dependencies:
-    "@oada/types": ^1.7.0
+    "@oada/types": ^1.8.1
     buffer: ^6.0.3
     bufferutil: ^4.0.5
     cross-fetch: ^3.1.4
@@ -153,8 +153,8 @@ __metadata:
     tslib: ^2.3.1
     type-is: ^1.6.18
     utf-8-validate: ^5.0.7
-    ws: ^8.3.0
-  checksum: b307daf0e63bacb624bd78500f5e3ecd11941f12052d2fe3fcda699dfbf297abf1fb064ea1be14e7254c2071b4a7854fc775fb90f95f0f94b1ee8c177d2c3cb8
+    ws: ^8.4.0
+  checksum: dc2a9c80aacdde89dd4b5bb35430c9b3274bded3500dae281d2fab64b709a671b7171aaa241bf1d226affafe3348d3f6fc9da29b05cfed4591555013b80b0e35
   languageName: node
   linkType: hard
 
@@ -162,7 +162,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@oada/jobs@workspace:."
   dependencies:
-    "@oada/client": ^3.0.5
+    "@oada/client": ^3.0.7
     "@oada/oadaify": ^1.0.1
     "@oada/types": ^1.5.1
     "@sindresorhus/is": ^2.1.1
@@ -219,7 +219,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oada/types@npm:^1.7.0":
+"@oada/types@npm:^1.8.1":
   version: 1.8.1
   resolution: "@oada/types@npm:1.8.1"
   dependencies:
@@ -4137,9 +4137,9 @@ typescript@^4.2.4:
   languageName: node
   linkType: hard
 
-"ws@npm:^8.3.0":
-  version: 8.4.0
-  resolution: "ws@npm:8.4.0"
+"ws@npm:^8.4.0":
+  version: 8.4.2
+  resolution: "ws@npm:8.4.2"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ^5.0.2
@@ -4148,7 +4148,7 @@ typescript@^4.2.4:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 5e37ccf0ecb8d8019d88b07af079e8f74248b688ad3109ab57cd5e1c9a7392545f572914d0c27f25e8b83a6cfc09a89ac151c556ff4fae26d6f824077e4f8239
+  checksum: 4369caaac8d1092a73871f5cf1d87fcbb995dc4183a1bc48e4f451bc2d02d0a8bf7c17edf1da18e2be3c773b09262275356b256d1c55bc7ca096154293ba2a8c
   languageName: node
   linkType: hard
 
