@@ -90,7 +90,7 @@ export class Service {
       this.oada = new OADAClient(obj.connect);
     } else throw new Error(`Service constructor requires either an 'oada' or a 'connect' argument`)
     this.domain = this.oada.getDomain();
-    this.token = this.oada.getToken();
+    this.token = this.oada.getToken()[0]!;
     this.concurrency = this.oada.getConcurrency();
     if (obj.opts) {
       this.opts = obj.opts;

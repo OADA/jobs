@@ -1,6 +1,7 @@
 import Debug from 'debug';
+import moment from 'moment';
 import type { OADAClient, ConnectionResponse, Json } from '@oada/client';
-import { serviceTree as tree } from '../src/tree';
+import { serviceTree as tree } from './tree';
 
 export const error = Debug('oada-jobs:connection:error');
 export const info = Debug('oada-jobs:connection:info');
@@ -61,3 +62,25 @@ export async function postJob(oada: OADAClient, path: string, job: Json): Promis
   
   return { _id, key };
 }
+
+/**
+ * Posts an update message to the Job's OADA object.
+ * @param status The value of the current status
+ * @param meta Arbitrary JSON serializeable meta data about update
+ */
+export async function postUpdate(oada: OADAClient, oadaId: string, meta: Json, status: string): Promise<void> {
+    await oada.post({
+      path: `/${oadaId}/updates`,
+      // since we aren't using tree, we HAVE to set the content type or permissions fail
+      contentType: tree.bookmarks.services['*'].jobs['*']._type,
+      data: {
+        status,
+        time: moment().toISOString(),
+        meta,
+      },
+    }).catch(e => {
+      error('Failed to post update to oada at /'+oadaId+'/updates.  status = ', e.status);
+      throw e;
+    });
+  }
+

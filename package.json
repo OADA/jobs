@@ -1,6 +1,6 @@
 {
   "name": "@oada/jobs",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A library for oada job based microservices",
   "source": "src/index.ts",
   "main": "dist/index.js",
