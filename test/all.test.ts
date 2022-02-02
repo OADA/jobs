@@ -52,7 +52,10 @@ describe('Overall functional tests: all.test.js', function() {
 
     // Start the service
     trace('before: starting service ', name);
-    svc = new Service(name, oada, 1);
+    svc = new Service({
+      name, 
+      oada, 
+    });
     // Register a default job handler
     svc.on('basic', 1000, async (job) => {
       trace('received job, job.config = ', job?.config);
@@ -83,7 +86,6 @@ describe('Overall functional tests: all.test.js', function() {
 
 
   it('Should remove job from jobs queue when done', async() => {
-    await postJob(oada, `${root}/jobs`, successjob);
     const { key } = await postJob(oada, `${root}/jobs`, successjob);
     await setTimeout(jobwaittime);
     const jobisgone = await oada.get({ 
@@ -139,5 +141,49 @@ describe('Overall functional tests: all.test.js', function() {
     expect(result).to.not.equal(false); // it should be in the failure queue
     expect((result as OADAJob)?.status).to.equal('failure');
   });
+
+  it('Should allow job created with a tree put (can lead to empty job content for a moment))', async () => {
+    const dayindex = moment().format('YYYY-MM-DD');
+    const key = 'abc123'
+    await oada.put({
+      path: `${root}/jobs/${key}`,
+      data: successjob,
+      tree
+    })
+    await setTimeout(jobwaittime);
+
+    const result = await oada.get({ 
+      path: `${root}/jobs-success/day-index/${dayindex}/${key}`,
+    }).then(r=>r.data).catch(e => {
+      if (e.status === 404) return false; // if it's not there, just return false
+      throw e;                              // any other error, throw it back up
+    });
+    expect(result).to.not.equal(false); // it should be in the failure queue
+    expect((result as OADAJob)?.status).to.equal('success');
+  });
+
+  it('Should allow connection with existing OADAClient', async () => {
+    let con = await connect({domain,token});
+    expect(
+      () => {
+        new Service({
+          name, 
+          oada: con, 
+        })
+      }
+    ).to.not.throw();
+  });
+
+  it('Should allow connection with new connection Config', async () => {
+    expect(
+     () => {
+       new Service({
+         name, 
+         oada: {domain,token}
+       })
+     }
+    ).to.not.throw(); 
+  });
+
 
 });

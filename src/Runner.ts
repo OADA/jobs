@@ -178,7 +178,7 @@ export class Runner {
               trace(
                 'Handling slack finishReporter, getting final job object from OADA'
               );
-              const finaljob = await Job.fromOada(this.oada, this.job.oadaId);
+              const {job: finaljob } = await Job.fromOada(this.oada, this.job.oadaId);
               trace(
                 'Have final job object from OADA, sending to slack finishReporter'
               );

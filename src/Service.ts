@@ -41,8 +41,7 @@ export interface ServiceOpts {
 }
 export interface ConstructorArgs {
   name: string,
-  connect?: Config,
-  oada?: OADAClient,
+  oada?: OADAClient | Config,
   opts?: ServiceOpts
 }
 
@@ -75,20 +74,22 @@ export class Service {
    *   - new Service(name, domain, token, concurrency, opts?) 
    *   - new Service(name, oada, concurrency, opts?)
    * @param name Name of service
-   * @param domain_or_oada Domain of configuration OADA store, or an existing OADA connection to use instead
-   * @param token_or_concurrency Token for configuration OADA store (if no OADA connection given), or concurrency as maximum number of in-flight requests per domain.
-   * @param concurrency_or_opts Maximum number of in-flight requests per domain (if no OADA connection given), or ServiceOpts if an oada connection was given
-   * @param opts If no OADA connection given, this is the ServiceOpts (finish reporter, etc)
+   * @param oada Either an existing OADAClient or a connection object used to call oada.connect
+   * @param opts ServiceOpts (finish reporter, etc)
    */
   constructor(obj: ConstructorArgs) {
     this.name = obj.name;
-    if (obj.oada) {
+    if (obj.oada instanceof OADAClient) {
       debug('Using oada connection passed to contructor');
       this.oada = obj.oada;
-    } else if (obj.connect) {
+    } else {
       debug('Opening OADA connection from domain/token that were passed');
-      this.oada = new OADAClient(obj.connect);
-    } else throw new Error(`Service constructor requires either an 'oada' or a 'connect' argument`)
+      try {
+        this.oada = new OADAClient(obj.oada!);
+      } catch (err) {
+        throw new Error(`Service constructor requires either an existing OADA client or the connection config to create a new new connection. Attempt to create a new connection with the 'oada' argument failed.`)
+      }
+    } 
     this.domain = this.oada.getDomain();
     this.token = this.oada.getToken()[0]!;
     this.concurrency = this.oada.getConcurrency();

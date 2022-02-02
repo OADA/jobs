@@ -1,8 +1,13 @@
 import type { OADAClient } from '@oada/client';
-import OADAJob, { assert as assertOADAJob } from '@oada/types/oada/service/job';
+import OADAJob, { assert as assertOADAJob, is as isOADAJob } from '@oada/types/oada/service/job';
 import { error } from './utils';
 
 import type { Json } from '.';
+
+export interface FromOada {
+  job: Job;
+  isJob: boolean;
+}
 
 export interface JobUpdate {
   status: string;
@@ -42,7 +47,7 @@ export class Job {
    * @param oada Authenticated OADAClient to fetch Job object
    * @param id OADA resource ID of job
    */
-  public static async fromOada(oada: OADAClient, oadaId: string): Promise<Job> {
+  public static async fromOada(oada: OADAClient, oadaId: string): Promise<FromOada> {
     let r = await oada.get({
       path: `/${oadaId}`,
     });
@@ -61,13 +66,12 @@ export class Job {
 
     // Now do the *real* assertion
     const job = r.data;
-    try {
-      assertOADAJob(job);
-      return new Job(oadaId, job);
-    } catch(e) {
+    let isJob = isOADAJob(job);
+    if (!isJob) {
       error('Job at '+oadaId+' FAILED OADAJob type assertion: ', job);
-      throw e;
     }
-
+    
+    // @ts-ignore
+    return {job: new Job(oadaId, job), isJob}
   }
 }

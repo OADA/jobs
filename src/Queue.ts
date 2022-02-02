@@ -1,4 +1,5 @@
 import bluebird from 'bluebird';
+import moment from 'moment';
 import type { OADAClient } from '@oada/client';
 import OADAJobs, { assert as assertJobs } from '@oada/types/oada/service/jobs';
 
@@ -144,10 +145,14 @@ export class Queue {
       Object.keys(jobs),
       async (jobId) => {
         // Fetch the job
-        const job = await Job.fromOada(this.oada, jobs[jobId]!._id);
+        const { job, isJob } = await Job.fromOada(this.oada, jobs[jobId]!._id);
 
         // Instantiate a runner to manage the job
         const runner = new Runner(this.service, jobId, job, this.oada);
+
+        if (!isJob) {
+          runner.finish('failure', {}, moment())
+        }
 
         trace(`[QueueId: ${this.id}] Starting runner for ${jobId}`);
         await runner.run();
