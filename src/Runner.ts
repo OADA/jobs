@@ -103,7 +103,7 @@ export class Runner {
     await this.oada.post({
       path: `/${this.job.oadaId}/updates`,
       // since we aren't using tree, we HAVE to set the content type or permissions fail
-      contentType: serviceTree.bookmarks.services['*'].jobs['*']._type,
+      contentType: serviceTree.bookmarks.services['*'].jobs.pending['*']._type,
       data: {
         status,
         time: moment().toISOString(),
@@ -146,7 +146,7 @@ export class Runner {
 
     // Link into success/failure event log
     const date = moment(time).format('YYYY-MM-DD');
-    const finalpath = `/bookmarks/services/${this.service.name}/jobs-${status}/day-index/${date}`;
+    const finalpath = `/bookmarks/services/${this.service.name}/jobs/${status}/day-index/${date}`;
     trace('[job ',this.jobId,' ]: linking job to final resting place at ', finalpath);
     await this.oada.put({
       path: finalpath,
@@ -160,7 +160,7 @@ export class Runner {
     // Remove from job queue
     trace('[job ',this.jobId,' ]: removing from jobs queue');
     await this.oada.delete({
-      path: `/bookmarks/services/${this.service.name}/jobs/${this.jobId}`,
+      path: `/bookmarks/services/${this.service.name}/jobs/pending/${this.jobId}`,
     });
 
     // Notify the status reporter if there is one

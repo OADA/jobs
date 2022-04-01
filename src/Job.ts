@@ -72,6 +72,8 @@ export class Job {
     }
     
     // @ts-ignore
+    // Because its an oada resource, job will be an object. The job
+    // constructor shouldn't explode as is. 
     return {job: new Job(oadaId, job), isJob}
   }
 }

@@ -15,30 +15,39 @@ export const serviceTree = {
         },
         'jobs': {
           '_type': 'application/vnd.oada.service.jobs+json',
-          '*': {
-            _type: 'application/vnd.oada.service.job+json',
+          'pending': {
+            '_type': 'application/vnd.oada.service.jobs+json',
+            '*': {
+              _type: 'application/vnd.oada.service.job+json',
+            }
           },
-        },
-        'jobs-failure': {
-          '_type': 'application/vnd.oada.service.jobs-failure+json',
-          'day-index': {
+          'success': {
+            '_type': 'application/vnd.oada.service.jobs-success+json',
+            'day-index': {
+              '*': {
+                '_type': 'application/vnd.oada.service.jobs+json',
+                '*': {
+                  _type: 'application/vnd.oada.service.job+json',
+                },
+              },
+            },
+          },
+          'failure': {
+            '_type': 'application/vnd.oada.service.jobs-failure+json',
+            'day-index': {
+              '*': {
+                '_type': 'application/vnd.oada.service.jobs+json',
+                '*': {
+                  _type: 'application/vnd.oada.service.job+json',
+                },
+              },
+            },
             '*': {
               '_type': 'application/vnd.oada.service.jobs+json',
               '*': {
                 _type: 'application/vnd.oada.service.job+json',
               },
-            },
-          },
-        },
-        'jobs-success': {
-          '_type': 'application/vnd.oada.service.jobs-success+json',
-          'day-index': {
-            '*': {
-              '_type': 'application/vnd.oada.service.jobs+json',
-              '*': {
-                _type: 'application/vnd.oada.service.job+json',
-              },
-            },
+            }
           },
         },
       },

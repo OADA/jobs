@@ -184,6 +184,4 @@ describe('Overall functional tests: all.test.js', function() {
      }
     ).to.not.throw(); 
   });
-
-
 });
