@@ -57,7 +57,7 @@ let oada = null;
 
 function usage() {
   console.log(
-    'USAGE: oada-jobs [-t token] [-d domain] -q <queuepath> (list|retry <jobid>|print <jobs|jobs-success|jobs-failure> <jobid>)'
+    'USAGE: oada-jobs [-t token] [-d domain] -q <queuepath> (list|retry <jobid>|print <pending|success|failure> <jobid>)'
   );
   console.log('');
   console.log(
@@ -68,10 +68,10 @@ function usage() {
   );
   console.log('');
   console.log(
-    '     print <jobs|jobs-success|jobs-failure> <jobid>: prints contents of a job, either in '
+    '     print <pending|success|failure> <jobid>: prints contents of a job, either in '
   );
   console.log(
-    '                                                     jobs, jobs-success, or jobs-failure list'
+    '                                                     pending, success, or failure list'
   );
   console.log('');
   console.log(
@@ -100,7 +100,7 @@ async function printJob(jid, which) {
 //---------------------------------------------------
 
 async function retryJob(jobid) {
-  const { job, day } = await findJobByJobId(jobid, 'jobs-failure');
+  const { job, day } = await findJobByJobId(jobid, 'jobs/failure');
   const oldjob = job;
   info(`Re-posting job config from job ${jobid} that failed on ${day}`);
   trace(`Old job config = `, oldjob.config);
@@ -118,12 +118,12 @@ async function retryJob(jobid) {
     .then((r) => r.headers['content-location'].replace(/^\/resources\//, ''));
   // Post to jobs queue
   await oada.put({
-    path: `${queue}/jobs`,
+    path: `${queue}/jobs/pending`,
     data: { [reskey]: { _id: `resources/${reskey}` } },
     _type: 'application/vnd.oada.service.jobs.1+json',
   });
   info(
-    `Successfully re-posted original job to new jobid ${reskey} at ${queue}/jobs/${reskey}`
+    `Successfully re-posted original job to new jobid ${reskey} at ${queue}/jobs/pending/${reskey}`
   );
 }
 
@@ -132,7 +132,7 @@ async function findJobByJobId(jid, which) {
     trace(`findJobByJobId: asked for jobs queue, returning job`);
     return {
       job: await oada
-        .get({ path: `${queue}/jobs/${jid}` })
+        .get({ path: `${queue}/jobs/pending/${jid}` })
         .then((r) => d.data)
         .catch((e) => null),
     };
@@ -170,15 +170,15 @@ async function findJobByJobId(jid, which) {
 //-------------------------------------------------------------
 
 async function list() {
-  const latest_success = await getMostRecentDayIndex('jobs-success');
-  const latest_failure = await getMostRecentDayIndex('jobs-failure');
+  const latest_success = await getMostRecentDayIndex('jobs/success');
+  const latest_failure = await getMostRecentDayIndex('jobs/failure');
   const { jobs, success, failure } = await Promise.props({
-    jobs: oada.get({ path: `${queue}/jobs` }).then((r) => r.data),
+    jobs: oada.get({ path: `${queue}/jobs/pending` }).then((r) => r.data),
     success: oada
-      .get({ path: `${queue}/jobs-success/day-index/${latest_success}` })
+      .get({ path: `${queue}/jobs/success/day-index/${latest_success}` })
       .then((r) => r.data),
     failure: oada
-      .get({ path: `${queue}/jobs-failure/day-index/${latest_failure}` })
+      .get({ path: `${queue}/jobs/failure/day-index/${latest_failure}` })
       .then((r) => r.data),
   });
   trace(`jobs = `, jobs);

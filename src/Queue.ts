@@ -41,9 +41,9 @@ export class Queue {
   private watchRequestId: string | string[] = '';
   public async start(): Promise<void> {
     const root = `/bookmarks/services/${this.service.name}`;
-    const jobspath = `${root}/jobs`;
-    const successpath = `${root}/jobs-success`;
-    const failurepath = `${root}/jobs-failure`;
+    const jobspath = `${root}/jobs/pending`;
+    const successpath = `${root}/jobs/success`;
+    const failurepath = `${root}/jobs/failure`;
 
     try {
       // Ensure the job queue exists
@@ -51,12 +51,12 @@ export class Queue {
         if (e.status !== 404) throw e;
         await this.oada.put({path: jobspath, data: {}, tree });
       });
-      // Ensure the jobs-success queue exists
+      // Ensure the success list exists
       await this.oada.head({ path: successpath }).catch(async (e) => {
         if (e.status !== 404) throw e;
         await this.oada.put({path: successpath, data: {}, tree });
       });
-      // Ensure the jobs-failure queue exists
+      // Ensure the failure list exists
       await this.oada.head({ path: failurepath }).catch(async (e) => {
         if (e.status !== 404) throw e;
         await this.oada.put({path: failurepath, data: {}, tree });

@@ -30,7 +30,7 @@
     "exit": true,
     "timeout": 10000
   },
-  "packageManager": "yarn@3.0.1",
+  "packageManager": "yarn@3.2.0",
   "dependencies": {
     "@oada/client": "^3.0.7",
     "@oada/oadaify": "^1.0.1",

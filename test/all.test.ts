@@ -17,6 +17,9 @@ const error = debug('all.test.ts:error');
 
 const name = 'JOBSTEST'; //+(new Date()).getTime();
 const root = `/bookmarks/services/${name}`;
+const success = `/bookmarks/services/${name}/jobs/success`;
+const failure = `/bookmarks/services/${name}/jobs/failure`;
+const pending = `/bookmarks/services/${name}/jobs/pending`;
 const successjob = {
   service: name,
   type: 'basic',
@@ -86,10 +89,10 @@ describe('Overall functional tests: all.test.js', function() {
 
 
   it('Should remove job from jobs queue when done', async() => {
-    const { key } = await postJob(oada, `${root}/jobs`, successjob);
+    const { key } = await postJob(oada, pending, successjob);
     await setTimeout(jobwaittime);
     const jobisgone = await oada.get({ 
-      path: `${root}/jobs/${key}`,
+      path: `${pending}/${key}`,
     }).then(()=>false).catch(e => e.status === 404);
     expect(jobisgone).to.equal(true);
   });
@@ -97,11 +100,11 @@ describe('Overall functional tests: all.test.js', function() {
 
   it('Should move successful job to success queue, have status success, and store result verbatim', async () => {
     const dayindex = moment().format('YYYY-MM-DD');
-    const { key } = await postJob(oada, `${root}/jobs`, successjob);
+    const { key } = await postJob(oada, pending, successjob);
     await setTimeout(jobwaittime);
 
     const result = await oada.get({ 
-      path: `${root}/jobs-success/day-index/${dayindex}/${key}`,
+      path: `${success}/day-index/${dayindex}/${key}`,
     }).then(r=>r.data).catch(e => {
       if (e.status === 404) return false; // if it's not there, just return false
       throw e;                              // any other error, throw it back up
@@ -113,11 +116,11 @@ describe('Overall functional tests: all.test.js', function() {
 
   it('Should move failed job to failure queue, have status failure', async() => {
     const dayindex = moment().format('YYYY-MM-DD');
-    const { key } = await postJob(oada, `${root}/jobs`, failjob);
+    const { key } = await postJob(oada, pending, failjob);
     await setTimeout(jobwaittime);
 
     const result = await oada.get({ 
-      path: `${root}/jobs-failure/day-index/${dayindex}/${key}`,
+      path: `${failure}/day-index/${dayindex}/${key}`,
     }).then(r=>r.data).catch(e => {
       if (e.status === 404) return false; // if it's not there, just return false
       throw e;                              // any other error, throw it back up
@@ -129,11 +132,11 @@ describe('Overall functional tests: all.test.js', function() {
 
   it('Should fail a posted job that does not look like a job (missing config)', async () => {
     const dayindex = moment().format('YYYY-MM-DD');
-    const { key } = await postJob(oada, `${root}/jobs`, { thisis: 'not a valid job' });
+    const { key } = await postJob(oada, pending, { thisis: 'not a valid job' });
     await setTimeout(jobwaittime);
 
     const result = await oada.get({ 
-      path: `${root}/jobs-failure/day-index/${dayindex}/${key}`,
+      path: `${failure}/day-index/${dayindex}/${key}`,
     }).then(r=>r.data).catch(e => {
       if (e.status === 404) return false; // if it's not there, just return false
       throw e;                              // any other error, throw it back up
@@ -146,14 +149,14 @@ describe('Overall functional tests: all.test.js', function() {
     const dayindex = moment().format('YYYY-MM-DD');
     const key = 'abc123'
     await oada.put({
-      path: `${root}/jobs/${key}`,
+      path: `${pending}/${key}`,
       data: successjob,
       tree
     })
     await setTimeout(jobwaittime);
 
     const result = await oada.get({ 
-      path: `${root}/jobs-success/day-index/${dayindex}/${key}`,
+      path: `${success}/day-index/${dayindex}/${key}`,
     }).then(r=>r.data).catch(e => {
       if (e.status === 404) return false; // if it's not there, just return false
       throw e;                              // any other error, throw it back up
