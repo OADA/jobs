@@ -1,8 +1,8 @@
 import type { OADAClient } from '@oada/client';
 import OADAJob, { assert as assertOADAJob, is as isOADAJob } from '@oada/types/oada/service/job';
-import { error } from './utils';
+import { error } from './utils.js';
 
-import type { Json } from '.';
+import type { Json } from './index.js';
 
 export interface FromOada {
   job: Job;
@@ -70,10 +70,10 @@ export class Job {
     if (!isJob) {
       error('Job at '+oadaId+' FAILED OADAJob type assertion: ', job);
     }
-    
+
     // @ts-ignore
     // Because its an oada resource, job will be an object. The job
-    // constructor shouldn't explode as is. 
+    // constructor shouldn't explode as is.
     return {job: new Job(oadaId, job), isJob}
   }
 }

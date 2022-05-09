@@ -3,12 +3,12 @@ import moment from 'moment';
 import type { OADAClient } from '@oada/client';
 import OADAJobs, { assert as assertJobs } from '@oada/types/oada/service/jobs';
 
-import type { Service } from './Service';
-import { Job } from './Job';
-import { Runner } from './Runner';
+import type { Service } from './Service.js';
+import { Job } from './Job.js';
+import { Runner } from './Runner.js';
 
-import { stripResource, error, info, debug, trace } from './utils';
-import { serviceTree as tree } from './tree';
+import { stripResource, error, info, debug, trace } from './utils.js';
+import { serviceTree as tree } from './tree.js';
 
 /**
  * Manages watching of a particular job queue
@@ -47,17 +47,17 @@ export class Queue {
 
     try {
       // Ensure the job queue exists
-      await this.oada.head({ path: jobspath }).catch(async (e) => {
+      await this.oada.head({ path: jobspath }).catch(async (e: any) => {
         if (e.status !== 404) throw e;
         await this.oada.put({path: jobspath, data: {}, tree });
       });
       // Ensure the success list exists
-      await this.oada.head({ path: successpath }).catch(async (e) => {
+      await this.oada.head({ path: successpath }).catch(async (e: any) => {
         if (e.status !== 404) throw e;
         await this.oada.put({path: successpath, data: {}, tree });
       });
       // Ensure the failure list exists
-      await this.oada.head({ path: failurepath }).catch(async (e) => {
+      await this.oada.head({ path: failurepath }).catch(async (e: any) => {
         if (e.status !== 404) throw e;
         await this.oada.put({path: failurepath, data: {}, tree });
       });
@@ -82,7 +82,11 @@ export class Queue {
       trace(`[QueueId ${this.id}] Adding existing jobs`);
       stripResource(r.data);
       assertJobs(r.data);
-      await this.doJobs(r.data);
+      //TODO: I don't think this has to be await. If _any_ jobs are in a frozen
+      // state, e.g., target is not on, this will hang and the process won't
+      // start at all.
+      //await this.doJobs(r.data);
+      this.doJobs(r.data);
       trace(Object.keys(r.data).length, " jobs added and doJobs is complete, starting watch.");
 
       // Watch will be started from rev that we just processed
@@ -93,7 +97,7 @@ export class Queue {
         for await (const change of changes) {
           trace('[QueueId %s] received change: ', this.id, change);
           if (change.type !== 'merge') continue;
-  
+
           // catch error in callback to avoid nodejs crash on error
           try {
             const jobs = stripResource(change.body);

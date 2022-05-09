@@ -33,7 +33,7 @@ export async function postJob(oada: OADAClient, path: string, job: Json): Promis
   const key = await oada.post({
     path,
     data: { _id },
-    contentType: tree.bookmarks.services['*'].jobs['*']._type,
+    contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
   }).then(r => r.headers['content-location']?.replace(/\/resources\/[^\/]+\//,'') || ''); // get rid of resourceid to get the new key
   
   return { _id, key };

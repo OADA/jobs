@@ -4,10 +4,11 @@ declare global {
   }
 }
 
-export { Service, WorkerFunction, JobId, FinishReporter } from './Service';
-export { Job } from './Job';
-export { Logger } from './Logger';
-export { postJob, postUpdate } from './utils';
+export { Service, WorkerFunction, JobId, FinishReporter } from './Service.js';
+export { JobError } from './Runner.js';
+export { Job } from './Job.js';
+export { Logger } from './Logger.js';
+export { postJob, postUpdate } from './utils.js';
 
 export type Json =
   | null

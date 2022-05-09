@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import moment from 'moment';
 import type { OADAClient, ConnectionResponse, Json } from '@oada/client';
-import { serviceTree as tree } from './tree';
+import { serviceTree as tree } from './tree.js';
 
 export const error = Debug('oada-jobs:connection:error');
 export const info = Debug('oada-jobs:connection:info');
@@ -59,7 +59,7 @@ export async function postJob(oada: OADAClient, path: string, job: Json): Promis
     data: { _id },
     contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
   }).then(r => r.headers['content-location']?.replace(/\/resources\/[^\/]+\//,'') || ''); // get rid of resourceid to get the new key
-  
+
   return { _id, key };
 }
 
@@ -83,4 +83,3 @@ export async function postUpdate(oada: OADAClient, oadaId: string, meta: Json, s
       throw e;
     });
   }
-

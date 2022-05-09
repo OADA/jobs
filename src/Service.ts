@@ -2,11 +2,11 @@ import { OADAClient } from '@oada/client';
 import type { Config } from '@oada/client';
 import { assert as assertQueue } from '@oada/types/oada/service/queue';
 
-import { debug, error, warn } from './utils';
+import { debug, error, warn } from './utils.js';
 
-import type { Job } from './Job';
-import type { Logger } from './Logger';
-import { Queue } from './Queue';
+import type { Job } from './Job.js';
+import type { Logger } from './Logger.js';
+import { Queue } from './Queue.js';
 
 export type Domain = string;
 export type Type = string;
@@ -66,12 +66,12 @@ export class Service {
 
   private oada: OADAClient;
   private clients: Map<Domain, OADAClient> = new Map();
-  private queue: Queue;
+  private queue?: Queue;
   private workers: Map<Type, Worker> = new Map();
 
   /**
    * Creates a Service.  Two possible call signatures:
-   *   - new Service(name, domain, token, concurrency, opts?) 
+   *   - new Service(name, domain, token, concurrency, opts?)
    *   - new Service(name, oada, concurrency, opts?)
    * @param name Name of service
    * @param oada Either an existing OADAClient or a connection object used to call oada.connect
@@ -89,7 +89,7 @@ export class Service {
       } catch (err) {
         throw new Error(`Service constructor requires either an existing OADA client or the connection config to create a new new connection. Attempt to create a new connection with the 'oada' argument failed.`)
       }
-    } 
+    }
     this.domain = this.oada.getDomain();
     this.token = this.oada.getToken()[0]!;
     this.concurrency = this.oada.getConcurrency();
@@ -183,7 +183,7 @@ export class Service {
         await this.queue?.stop();
       }
 
-      let queue: Queue = new Queue(this, defaultServiceQueueName, this.oada);
+      const queue: Queue = new Queue(this, defaultServiceQueueName, this.oada);
       await queue.start();
       this.queue = queue;
     } catch (e) {

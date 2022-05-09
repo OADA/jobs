@@ -1,25 +1,30 @@
 {
-  "extends": "@tsconfig/node14",
+  "extends": "@tsconfig/node16",
   "compilerOptions": {
+    "composite": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "removeComments": true,
+    "stripInternal": true,
     "importHelpers": true,
-    "declaration": true,
-    "sourceMap": true,
+    "alwaysStrict": true,
     "strict": true,
     "importsNotUsedAsValues": "error",
-    "strictPropertyInitialization": false,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noImplicitReturns": true,
     "noImplicitThis": true,
     "noImplicitAny": true,
-    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "sourceMap": true,
     "forceConsistentCasingInFileNames": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "lib": [
+      "ES2015"
+    ],
+    "baseUrl":""
   },
-  "exclude": [
-    "test/**/*",
-    "dist/**/*"
-  ]
+  "include": ["src"]
 }

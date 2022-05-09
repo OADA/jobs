@@ -1,5 +1,5 @@
-import type { Runner } from './Runner';
-import type { JsonCompatible } from '.';
+import type { Runner } from './Runner.js';
+import type { JsonCompatible } from './index.js';
 
 /**
  * Manages logging updates to a running job.
