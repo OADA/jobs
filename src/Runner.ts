@@ -1,5 +1,6 @@
 import moment, { Moment } from 'moment';
 import pTimeout from 'p-timeout';
+import { serializeError } from 'serialize-error';
 import type { OADAClient } from '@oada/client';
 
 import type { Service } from './Service.js';
@@ -11,7 +12,7 @@ import { serviceTree } from './tree.js';
 import type { JsonCompatible } from './index.js';
 
 import type { Json } from '.';
-import { onFinish as slackOnFinish } from './finishReporters/slack';
+import { onFinish as slackOnFinish } from './finishReporters/slack/index.js';
 
 export class JobError extends Error {
   "JobError"?: string;
@@ -146,7 +147,7 @@ export class Runner {
     }
     if (failType) {
       data = {
-        status, result: JSON.stringify(result)
+        status, result: serializeError(result)
       }
     }
     trace('[job ', this.jobId, ']: putting to job resource the final {status,result} = ', data);
@@ -171,7 +172,7 @@ export class Runner {
     } else if (status === 'success') {
       finalpath = `/bookmarks/services/${this.service.name}/jobs/${status}/unknown/day-index/${date}`
     }
-    trace('[job ',this.jobId,' ]: linking job to final resting place at ', finalpath);
+    info('[job ',this.jobId,' ]: linking job to final resting place at ', finalpath);
     await this.oada.put({
       path: finalpath,
       data: {

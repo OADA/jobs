@@ -1,7 +1,7 @@
 import bluebird from 'bluebird';
 import moment from 'moment';
 import type { OADAClient } from '@oada/client';
-import OADAJobs, { assert as assertJobs } from '@oada/types/oada/service/jobs';
+import OADAJobs, { assert as assertJobs } from '@oada/types/oada/service/jobs.js';
 
 import type { Service } from './Service.js';
 import { Job } from './Job.js';

@@ -1,7 +1,7 @@
 import tiny from 'tiny-json-http'; // for finishReporters
-import { error, info } from '../../utils';
+import { error, info } from '../../utils.js';
 
-import type { FinishReporter, Service, Job } from '../../.';
+import type { FinishReporter, Service, Job } from '../.././index.js';
 
 interface FinishParams {
   config: FinishReporter;

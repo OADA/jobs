@@ -45,6 +45,7 @@
     "minimist": "^1.2.5",
     "moment": "^2.29.3",
     "p-timeout": "^3.2.0",
+    "serialize-error": "^10.0.0",
     "tiny-json-http": "^7.3.0",
     "tslib": "^2.4.0"
   },

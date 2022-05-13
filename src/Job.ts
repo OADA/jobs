@@ -1,5 +1,5 @@
 import type { OADAClient } from '@oada/client';
-import OADAJob, { assert as assertOADAJob, is as isOADAJob } from '@oada/types/oada/service/job';
+import OADAJob, { assert as assertOADAJob, is as isOADAJob } from '@oada/types/oada/service/job.js';
 import { error } from './utils.js';
 
 import type { Json } from './index.js';

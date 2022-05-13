@@ -1,16 +1,16 @@
 import { expect } from 'chai';
-import { domain, token } from './config';
+import { domain, token } from './config.js';
 import { connect, OADAClient } from '@oada/client';
 import { setTimeout } from 'timers/promises';
 import { oadaify } from '@oada/oadaify';
-import type OADAJob from '@oada/types/oada/service/job';
+import type OADAJob from '@oada/types/oada/service/job.js';
 import debug from 'debug';
 import moment from 'moment';
 
-import { deleteResourceAndLinkIfExists, postJob } from './utils';
+import { deleteResourceAndLinkIfExists, postJob } from './utils.js';
 
-import { Service, Json } from '../src';
-import { serviceTree as tree } from '../src/tree';
+import { Service, Json } from '../dist/index.js';
+import { serviceTree as tree } from '../dist/tree.js';
 
 const trace = debug('all.test.ts:trace');
 const error = debug('all.test.ts:error');
@@ -40,7 +40,7 @@ describe('Overall functional tests: all.test.js', function() {
     // Get global connection to oada for later tests
     oada = await connect({domain,token});
 
-    // Cleanup any old service tests that didn't get deleted    
+    // Cleanup any old service tests that didn't get deleted
     const existing = await oada.get({ path: '/bookmarks/services' })
     .then(r => oadaify(r.data as Json));
     if (typeof existing === 'object' && existing) {
@@ -56,8 +56,8 @@ describe('Overall functional tests: all.test.js', function() {
     // Start the service
     trace('before: starting service ', name);
     svc = new Service({
-      name, 
-      oada, 
+      name,
+      oada,
     });
     // Register a default job handler
     svc.on('basic', 1000, async (job) => {
@@ -91,7 +91,7 @@ describe('Overall functional tests: all.test.js', function() {
   it('Should remove job from jobs queue when done', async() => {
     const { key } = await postJob(oada, pending, successjob);
     await setTimeout(jobwaittime);
-    const jobisgone = await oada.get({ 
+    const jobisgone = await oada.get({
       path: `${pending}/${key}`,
     }).then(()=>false).catch(e => e.status === 404);
     expect(jobisgone).to.equal(true);
@@ -103,7 +103,7 @@ describe('Overall functional tests: all.test.js', function() {
     const { key } = await postJob(oada, pending, successjob);
     await setTimeout(jobwaittime);
 
-    const result = await oada.get({ 
+    const result = await oada.get({
       path: `${success}/day-index/${dayindex}/${key}`,
     }).then(r=>r.data).catch(e => {
       if (e.status === 404) return false; // if it's not there, just return false
@@ -119,7 +119,7 @@ describe('Overall functional tests: all.test.js', function() {
     const { key } = await postJob(oada, pending, failjob);
     await setTimeout(jobwaittime);
 
-    const result = await oada.get({ 
+    const result = await oada.get({
       path: `${failure}/day-index/${dayindex}/${key}`,
     }).then(r=>r.data).catch(e => {
       if (e.status === 404) return false; // if it's not there, just return false
@@ -135,7 +135,7 @@ describe('Overall functional tests: all.test.js', function() {
     const { key } = await postJob(oada, pending, { thisis: 'not a valid job' });
     await setTimeout(jobwaittime);
 
-    const result = await oada.get({ 
+    const result = await oada.get({
       path: `${failure}/day-index/${dayindex}/${key}`,
     }).then(r=>r.data).catch(e => {
       if (e.status === 404) return false; // if it's not there, just return false
@@ -155,7 +155,7 @@ describe('Overall functional tests: all.test.js', function() {
     })
     await setTimeout(jobwaittime);
 
-    const result = await oada.get({ 
+    const result = await oada.get({
       path: `${success}/day-index/${dayindex}/${key}`,
     }).then(r=>r.data).catch(e => {
       if (e.status === 404) return false; // if it's not there, just return false
@@ -170,8 +170,8 @@ describe('Overall functional tests: all.test.js', function() {
     expect(
       () => {
         new Service({
-          name, 
-          oada: con, 
+          name,
+          oada: con,
         })
       }
     ).to.not.throw();
@@ -181,10 +181,10 @@ describe('Overall functional tests: all.test.js', function() {
     expect(
      () => {
        new Service({
-         name, 
+         name,
          oada: {domain,token}
        })
      }
-    ).to.not.throw(); 
+    ).to.not.throw();
   });
 });

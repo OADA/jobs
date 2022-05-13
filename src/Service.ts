@@ -1,6 +1,6 @@
 import { OADAClient } from '@oada/client';
 import type { Config } from '@oada/client';
-import { assert as assertQueue } from '@oada/types/oada/service/queue';
+import { assert as assertQueue } from '@oada/types/oada/service/queue.js';
 
 import { debug, error, warn } from './utils.js';
 
