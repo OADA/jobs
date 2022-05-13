@@ -170,7 +170,7 @@ export class Runner {
         : `/bookmarks/services/${this.service.name}/jobs/${status}/unknown/day-index/${date}`
 
     } else if (status === 'success') {
-      finalpath = `/bookmarks/services/${this.service.name}/jobs/${status}/unknown/day-index/${date}`
+      finalpath = `/bookmarks/services/${this.service.name}/jobs/${status}/day-index/${date}`
     }
     info('[job ',this.jobId,' ]: linking job to final resting place at ', finalpath);
     await this.oada.put({
