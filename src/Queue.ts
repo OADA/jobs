@@ -83,7 +83,7 @@ export class Queue {
       stripResource(r.data);
       assertJobs(r.data);
       //TODO: I don't think this has to be await. If _any_ jobs are in a frozen
-      // state, e.g., target is not on, this will hang and the process won't
+      // state, e.g., target is not on, this will hang and the main process won't
       // start at all.
       //await this.doJobs(r.data);
       this.doJobs(r.data);
@@ -101,11 +101,11 @@ export class Queue {
           // catch error in callback to avoid nodejs crash on error
           try {
             const jobs = stripResource(change.body);
-            trace('[QueueId %s] jobs found in change:', this.id, Object.keys(jobs));
             assertJobs(jobs);
+            trace('[QueueId %s] jobs found in change:', this.id, Object.keys(jobs));
             this.doJobs(jobs);
           } catch (e) {
-            debug('Received a change that was not a `Jobs`, %O', e);
+            trace('The change was not a `Jobs`, %O', e);
             // Shouldn't it fail the job?
           }
         }
