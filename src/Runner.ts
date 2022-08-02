@@ -100,7 +100,11 @@ export class Runner {
       error(`[job ${this.jobId}] Failed`);
       trace(`[job ${this.jobId}] Error: %O`, e);
 
-      await this.finish('failure', e, moment(), e["JobError"]);
+      if (e instanceof pTimeout.TimeoutError) {
+        await this.finish('failure', e, moment(), "timeout");
+      } else {
+        await this.finish('failure', e, moment(), e["JobError"]);
+      }
     }
   }
 
