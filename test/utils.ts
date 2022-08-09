@@ -1,5 +1,5 @@
 import type { OADAClient, ConnectionResponse, Json } from '@oada/client';
-import { serviceTree as tree } from '../src/tree';
+import { tree } from '../dist/tree.js';
 
 export async function deleteResourceAndLinkIfExists(
   oada: OADAClient,
@@ -26,15 +26,15 @@ export async function postJob(oada: OADAClient, path: string, job: Json): Promis
   const _id = await oada.post({
     path: '/resources',
     data: (job as unknown) as Json,
-    contentType: tree.bookmarks.services['*'].jobs._type,
-  }).then(r => r.headers['content-location']?.replace(/^\//,'') || ''); // get rid of leading slash for link
+    contentType: tree.bookmarks!.services!['*']!.jobs!._type,
+  }).then(r => r.headers['content-location']?.replace(/^\//,'') || '') // get rid of leading slash for link
 
   // 2: Now post a link to that job
   const key = await oada.post({
     path,
     data: { _id },
-    contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
-  }).then(r => r.headers['content-location']?.replace(/\/resources\/[^\/]+\//,'') || ''); // get rid of resourceid to get the new key
-  
+    contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
+  }).then(r => r.headers['content-location']?.replace(/\/resources\/[^\/]+\//,'') || '') // get rid of resourceid to get the new key
+
   return { _id, key };
 }

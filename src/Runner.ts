@@ -8,7 +8,7 @@ import { Job } from './Job.js';
 import { Logger } from './Logger.js';
 
 import { info, debug, error, trace } from './utils.js';
-import { serviceTree } from './tree.js';
+import { tree } from './tree.js';
 import type { JsonCompatible } from './index.js';
 
 import type { Json } from '.';
@@ -117,7 +117,7 @@ export class Runner {
     await this.oada.post({
       path: `/${this.job.oadaId}/updates`,
       // since we aren't using tree, we HAVE to set the content type or permissions fail
-      contentType: serviceTree.bookmarks.services['*'].jobs.pending['*']._type,
+      contentType: tree!.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
       data: {
         status,
         time: moment().toISOString(),
@@ -182,9 +182,10 @@ export class Runner {
       data: {
         [this.jobId]: {
           _id: this.job.oadaId,
+          _rev: 0
         },
       },
-      tree: serviceTree
+      tree
     });
 
     // Remove from job queue

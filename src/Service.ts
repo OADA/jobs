@@ -7,6 +7,7 @@ import { debug, error, warn } from './utils.js';
 import type { Job } from './Job.js';
 import type { Logger } from './Logger.js';
 import { Queue } from './Queue.js';
+import { Report, ReportConfig, EmailConfigSetup } from './Report.js';
 
 export type Domain = string;
 export type Type = string;
@@ -68,6 +69,7 @@ export class Service {
   private clients: Map<Domain, OADAClient> = new Map();
   private queue?: Queue;
   private workers: Map<Type, Worker> = new Map();
+  private reports: Map<string, Report> = new Map();
 
   /**
    * Creates a Service.  Two possible call signatures:
@@ -105,6 +107,7 @@ export class Service {
 
   public async start(): Promise<void> {
     await this.doQueue();
+    this.reports.forEach((r) => r.start())
   }
 
   public async stop(): Promise<void> {
@@ -119,6 +122,7 @@ export class Service {
     await Promise.all(arr.map(requestid => this.oada.unwatch(requestid)));
     // And stop all the queue's and their watches:
     await this.stopQueue();
+    this.reports.forEach((r) => r.stop())
   }
 
   /**
@@ -138,6 +142,7 @@ export class Service {
   public off(type: string): void {
     this.workers.delete(type);
   }
+
 
   /**
    * Fetch the registered worker for a job type
@@ -199,5 +204,36 @@ export class Service {
       warn('Unable to stop queues');
       debug('Unable to stop queue %0', e);
     }
+  }
+
+  /**
+   * @param name The name of the report
+   * @param domain_or_oada The domain of the queue to watch, or an existing oada client.
+   * @param reportConfig The configuration used to derive CSV rows from the jobs list.
+   * @param frequency A cron-like string describing the frequency of the emailer.
+   * @param email A callback used to generate the email job
+   * @param type The subservice type to report on
+   * @param token Token to use to connect to OADA if necessary
+   */
+  public addReport(
+    name: string,
+    domain_or_oada: string | OADAClient,
+    reportConfig: ReportConfig,
+    frequency: string,
+    email: EmailConfigSetup,
+    type?: string,
+    token?: string
+  ): Report {
+    let report = new Report(name, domain_or_oada, reportConfig, this, frequency, email, type, token);
+    this.reports.set(name, report)
+    return report;
+  }
+
+  /**
+   * Get a registered report
+   * @param name The name of the report
+   */
+  public getReport(name: string): Report | undefined {
+    return this.reports.get(name);
   }
 }

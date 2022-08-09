@@ -8,7 +8,7 @@ import { Job } from './Job.js';
 import { Runner } from './Runner.js';
 
 import { stripResource, error, info, debug, trace } from './utils.js';
-import { serviceTree as tree } from './tree.js';
+import { tree } from './tree.js';
 
 /**
  * Manages watching of a particular job queue

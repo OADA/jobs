@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import moment from 'moment';
 import type { OADAClient, ConnectionResponse, Json } from '@oada/client';
-import { serviceTree as tree } from './tree.js';
+import { tree } from './tree.js';
 
 export const error = Debug('oada-jobs:connection:error');
 export const info = Debug('oada-jobs:connection:info');
@@ -50,14 +50,14 @@ export async function postJob(oada: OADAClient, path: string, job: Json): Promis
   const _id = await oada.post({
     path: '/resources',
     data: (job as unknown) as Json,
-    contentType: tree.bookmarks.services['*'].jobs.pending._type,
+    contentType: tree.bookmarks!.services!['*']!.jobs!.pending!._type,
   }).then(r => r.headers['content-location']?.replace(/^\//,'') || ''); // get rid of leading slash for link
 
   // 2: Now post a link to that job
   const key = await oada.post({
     path,
     data: { _id },
-    contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
+    contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
   }).then(r => r.headers['content-location']?.replace(/\/resources\/[^\/]+\//,'') || ''); // get rid of resourceid to get the new key
 
   return { _id, key };
@@ -72,7 +72,7 @@ export async function postUpdate(oada: OADAClient, oadaId: string, meta: Json, s
     await oada.post({
       path: `/${oadaId}/updates`,
       // since we aren't using tree, we HAVE to set the content type or permissions fail
-      contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
+      contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
       data: {
         status,
         time: moment().toISOString(),
