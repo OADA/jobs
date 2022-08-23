@@ -1,6 +1,6 @@
-import type { Tree } from '@oada/list-lib';
+//import type { Tree } from '@oada/list-lib';
 
-export const tree: Tree = {
+export const tree: Record<string,any> = {
   bookmarks: {
     _type: 'application/vnd.oada.bookmarks.1+json',
     services: {

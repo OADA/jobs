@@ -104,10 +104,6 @@ test.before(async (t) => {
         "from": "noreply@trellis.one",
         "to": {
           "name": "Test Email",
-          //"email": "dev_3pty@centricity.us",
-          "email": "sn@centricity.us"
-        },
-        replyTo: {
           "email": "sn@centricity.us"
         },
         "subject": `Test Email - ${date}`,
@@ -169,7 +165,7 @@ test('Should make a report entry when a job is added to the success index', asyn
 });
 
 test('Should post a job to abalonemail when it is time to report', async (t) => {
-  t.timeout(70_000);
+  t.timeout(75_000);
   const date = moment().format('YYYY-MM-DD');
   //@ts-ignore
   let wait = (reportTime - moment());

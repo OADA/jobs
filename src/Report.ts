@@ -82,25 +82,22 @@ export class Report {
     info(`Report ${this.name} created. Next run at ${(this.mailer.nextDates(1)as any)[0]}`);
   }
 
-  private async getAttachment() {
-    let records = await this.gatherReportRecords()
+  private async getAttachment(lastDate?: string, startDate?: string) {
+    let records = await this.gatherReportRecords(lastDate, startDate)
     let csvdat = csvjson.toCSV(records, {delimiter: ",", wrap: false, headers: "relative"})
-    //return btoa(csvdat);
     return Buffer.from(csvdat, 'utf8').toString('base64');
-    //let csvdat = csvjson.toCSV(records, {delimiter: ",", wrap: false})
-    //return Buffer.from(csvdat, 'base64').toString();
   }
 
-  public async sendEmail() {
+  public async sendEmail(ecs?: EmailConfig, lastDate?: string, startDate?: string) {
 
     let emailJob = {
       "service": "abalonemail",
       "type": "email",
-      "config": this.email(),
+      "config": ecs || this.email(),
     };
 
     if (emailJob.config.attachments!.length > 0) {
-      emailJob.config.attachments![0]!.content = await this.getAttachment();
+      emailJob.config.attachments![0]!.content = await this.getAttachment(lastDate, startDate);
     } else {
       info(`[Report ${this.name}] sendEmail had no attachments.`);
       return;
@@ -109,9 +106,20 @@ export class Report {
     //TODO Assert the EmailConfig??
 
     // Queue the job to send the email
-    await this.oada.post({
-      path: `/bookmarks/services/abalonemail/jobs/pending`,
+    const {
+      headers: { 'content-location': location },
+    } = await this.oada.post({
+      path: `/resources`,
       data: emailJob as JsonObject,
+    })
+
+    if (!location) return
+    let id = location.replace(/^\/resources\//, '')
+    await this.oada.put({
+      path: `/bookmarks/services/abalonemail/jobs/pending`,
+      data: {
+        [id]: {_id: `resources/${id}`}
+      },
       tree
     })
     info(`[Report ${this.name}] sent email job to abalonemail.`);
@@ -120,10 +128,10 @@ export class Report {
   /*
    * Function to gather the row entries to construct the csv
    */
-  private async gatherReportRecords() {
-    let endTime = moment(this.mailer.lastDate());
+  private async gatherReportRecords(lastDate?: string, lastCron?: string) {
+    let endTime = moment(lastDate || this.mailer.lastDate());
     //Iterate over the day-index
-    let startTime = moment(this.lastCron);
+    let startTime = moment(lastCron || this.lastCron);
     let curDate = moment(startTime.format('YYYY-MM-DD'));
     let records = [];
     let endDate = moment(endTime.format('YYYY-MM-DD'))
@@ -203,64 +211,121 @@ export class Report {
    * @params
    * @params
    */
-  private async reportItem(
+  public async reportItem(
     report: Report,
     job: Job,
     path: string,
   ): globalThis.Promise<void> {
 
-      if (!job) return;
+    if (!job) return;
 
-      //TODO: on first test, job.type was undefined. It should have a type to
-      //check here
-      if (report.type && job.type && !report.type.includes(job.type)) {
-        trace(`[Report ${report.name}] Job was not of type ${report.type}. Skipping.`);
-        return;
+    //TODO: on first test, job.type was undefined. It should have a type to
+    //check here
+    if (report.type && job.type && !report.type.includes(job.type)) {
+      trace(`[Report ${report.name}] Job was not of type ${report.type}. Skipping.`);
+      return;
+    }
+    info(`Reporting ${report.name} on item.`)
+    let data: any = {};
+    //Trellis Result;
+    //Additional Reasons;
+    //FoodLogiQ Link;
+    let pieces = jp.parse(path);
+    let errorType: string | undefined, date: string, jobid: string;
+    if (pieces.length === 4) {
+      errorType = pieces[0];
+      date = pieces[2];
+      jobid = pieces[3];
+    } else {
+      date = pieces[1];
+      jobid = pieces[2]
+    }
+
+    Object.entries(report.reportConfig.jobMappings).forEach(([colName, pointer]) => {
+      if (pointer === "errorMappings") {
+        if (errorType) {
+          data[colName] = report.reportConfig.errorMappings[errorType] || 'Other Error';
+        } else {
+          data[colName] = 'Success'
+        }
       }
-      let data: any = {};
-      //Trellis Result;
-      //Additional Reasons;
-      //FoodLogiQ Link;
-      let pieces = jp.parse(path);
-      let errorType: string | undefined, date: string, jobid: string;
-      if (pieces.length === 4) {
-        errorType = pieces[0];
-        date = pieces[2];
-        jobid = pieces[3];
-      } else {
-        date = pieces[1];
-        jobid = pieces[2]
-      }
+    })
 
-      try {
-        Object.entries(report.reportConfig.jobMappings).forEach(([colName, pointer]) => {
-          if (pointer === "errorMappings") {
-            if (errorType) {
-              data[colName] = report.reportConfig.errorMappings[errorType] || 'Other Error';
-            } else {
-              data[colName] = 'Success'
-            }
-          }
-        })
+    Object.entries(report.reportConfig.jobMappings)
+      .filter(([_, pointer]) => pointer !== "errorMappings")
+      .forEach(([colName, pointer]) => {
+        if (jp.has(job, pointer)) {
+          data[colName] = jp.get(job, pointer);
+        } else {
+          data[colName] = '';
+        }
+      })
 
-        Object.entries(report.reportConfig.jobMappings)
-          .filter(([_, pointer]) => pointer !== "errorMappings")
-          .forEach(([colName, pointer]) => {
-            data[colName] = jp.get(job, pointer) || '';
-          })
-
-        await report.oada.put({
-          path: `${report.path}/day-index/${date}`,
-          data: {
-            [jobid]: data,
-          },
-          tree,
-        })
-      } catch(err) {
-        return;
-      }
+    await report.oada.put({
+      path: `${report.path}/day-index/${date}`,
+      data: {
+        [jobid]: data,
+      },
+      tree,
+    })
   }
 }
+
+export async function reportOnItem(
+  report: Report,
+  job: Job,
+  path: string,
+): globalThis.Promise<void> {
+
+  if (!job) return;
+
+  //TODO: on first test, job.type was undefined. It should have a type to
+  //check here
+  if (report.type && job.type && !report.type.includes(job.type)) {
+    trace(`[Report ${report.name}] Job was not of type ${report.type}. Skipping.`);
+    return;
+  }
+  info(`Reporting ${report.name} on item.`)
+  let data: any = {};
+  //Trellis Result;
+  //Additional Reasons;
+  //FoodLogiQ Link;
+  let pieces = jp.parse(path);
+  let errorType: string | undefined, date: string, jobid: string;
+  if (pieces.length === 4) {
+    errorType = pieces[0];
+    date = pieces[2];
+    jobid = pieces[3];
+  } else {
+    date = pieces[1];
+    jobid = pieces[2]
+  }
+
+  Object.entries(report.reportConfig.jobMappings).forEach(([colName, pointer]) => {
+    if (pointer === "errorMappings") {
+      if (errorType) {
+        data[colName] = report.reportConfig.errorMappings[errorType] || 'Other Error';
+      } else {
+        data[colName] = 'Success'
+      }
+    }
+  })
+
+  Object.entries(report.reportConfig.jobMappings)
+    .filter(([_, pointer]) => pointer !== "errorMappings")
+    .forEach(([colName, pointer]) => {
+      data[colName] = jp.get(job, pointer) || '';
+    })
+
+  await report.oada.put({
+    path: `${report.path}/day-index/${date}`,
+    data: {
+      [jobid]: data,
+    },
+    tree,
+  })
+}
+
 
 export interface EmailConfigSetup{
   (): EmailConfig
