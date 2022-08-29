@@ -135,6 +135,7 @@ export class Report {
     let curDate = moment(startTime.format('YYYY-MM-DD'));
     let records = [];
     let endDate = moment(endTime.format('YYYY-MM-DD'))
+    let midnight = moment(endTime.format('YYYY-MM-DD')).add(1, 'day');//midnight the next day is the end of the window for previous date
     while (curDate <= endDate) {
       let date = curDate.format('YYYY-MM-DD');
 
@@ -149,10 +150,11 @@ export class Report {
       // Remove oada keys, filter by time (key)
       let items = Object.keys(day)
         .filter(key => key.charAt(0) !== '_')
-        .filter(key => {
-          let d = moment(ksuid.parse(key).date).subtract(4, 'minutes').subtract(15, 'seconds');
-          return moment(d) > startTime && moment(d) < endTime
-        })
+        .filter(key => moment(ksuid.parse(key).date) < midnight)
+          // server offset
+//          let d = moment(ksuid.parse(key).date).subtract(4, 'minutes').subtract(15, 'seconds');
+//          return d < midnight
+//        })
         .map(key => day[key])
 
       records.push(...items);
