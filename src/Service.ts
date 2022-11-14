@@ -106,6 +106,12 @@ export class Service {
   private watchRequestId: string | string[] = ''
 
   public async start(): Promise<void> {
+    /*
+    this.oada.put({
+      path: `/bookmarks/services/${this.name}/_meta`,
+      data: {'oada-jobs': { 'last-start': new Date().toISOString()}}
+    })
+    */
     await this.doQueue();
     this.reports.forEach((r) => r.start())
   }
