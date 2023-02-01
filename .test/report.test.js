@@ -85,9 +85,6 @@ test.before(async (t) => {
                 "name": "Test Email",
                 "email": "sn@centricity.us"
             },
-            replyTo: {
-                "email": "sn@centricity.us"
-            },
             "subject": `Test Email - ${date}`,
             "text": `Attached is the Test Report for the test service jobs processed on ${date}`,
             "attachments": [{
@@ -137,7 +134,7 @@ test('Should make a report entry when a job is added to the success index', asyn
     t.deepEqual(report, { Status: 'Success', 'Column One': 'abc', 'Column Two': 'def' });
 });
 test('Should post a job to abalonemail when it is time to report', async (t) => {
-    t.timeout(70000);
+    t.timeout(75000);
     const date = moment().format('YYYY-MM-DD');
     let wait = (reportTime - moment());
     await setTimeout(wait > 0 ? wait + 5000 : 0);

@@ -1,20 +1,35 @@
-import { OADAClient } from '@oada/client';
+/**
+ * @license
+ * Copyright 2023 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import type { Config } from '@oada/client';
+import { OADAClient } from '@oada/client';
 import { assert as assertQueue } from '@oada/types/oada/service/queue.js';
 
+import { type EmailConfigSetup, Report, type ReportConfig } from './Report.js';
 import { debug, error, warn } from './utils.js';
-
 import type { Job } from './Job.js';
+import type { Json } from './index.js';
 import type { Logger } from './Logger.js';
 import { Queue } from './Queue.js';
-import { Report, ReportConfig, EmailConfigSetup } from './Report.js';
 
 export type Domain = string;
 export type Type = string;
 export type QueueId = string;
 export type JobId = string;
-
-import type { Json } from './index.js';
 
 export interface WorkerContext {
   jobId: string;
@@ -32,19 +47,19 @@ export interface Worker {
 }
 
 export interface FinishReporter {
-  type: 'slack'; // add more over time
+  type: 'slack'; // Add more over time
   status: 'success' | 'failure';
   posturl?: string;
 }
 export interface FinishReporters extends Array<FinishReporter> {}
-export interface ServiceOpts {
+export interface ServiceOptions {
   finishReporters?: FinishReporters;
   skipQueueOnStartup?: boolean;
 }
-export interface ConstructorArgs {
-  name: string,
-  oada?: OADAClient | Config,
-  opts?: ServiceOpts
+export interface ConstructorArguments {
+  name: string;
+  oada?: OADAClient | Config;
+  opts?: ServiceOptions;
 }
 
 export const defaultServiceQueueName = 'default-service-queue';
@@ -64,13 +79,13 @@ export class Service {
   // a separate oada connection for each.
   public domain: string;
   public token: string;
-  public opts: ServiceOpts | undefined;
+  public opts: ServiceOptions | undefined;
 
-  private oada: OADAClient;
-  private clients: Map<Domain, OADAClient> = new Map();
-  private queue?: Queue;
-  private workers: Map<Type, Worker> = new Map();
-  private reports: Map<string, Report> = new Map();
+  readonly #oada: OADAClient;
+  readonly #clients = new Map<Domain, OADAClient>();
+  readonly #workers = new Map<Type, Worker>();
+  readonly #reports = new Map<string, Report>();
+  #queue?: Queue;
 
   /**
    * Creates a Service.  Two possible call signatures:
@@ -80,50 +95,98 @@ export class Service {
    * @param oada Either an existing OADAClient or a connection object used to call oada.connect
    * @param opts ServiceOpts (finish reporter, etc)
    */
-  constructor(obj: ConstructorArgs) {
-    this.name = obj.name;
-    if (obj.oada instanceof OADAClient) {
-      debug('Using oada connection passed to contructor');
-      this.oada = obj.oada;
+  constructor(object: ConstructorArguments) {
+    this.name = object.name;
+    if (object.oada instanceof OADAClient) {
+      debug('Using oada connection passed to constructor');
+      this.#oada = object.oada;
     } else {
       debug('Opening OADA connection from domain/token that were passed');
       try {
-        this.oada = new OADAClient(obj.oada!);
-      } catch (err) {
-        throw new Error(`Service constructor requires either an existing OADA client or the connection config to create a new new connection. Attempt to create a new connection with the 'oada' argument failed.`)
+        this.#oada = new OADAClient(object.oada!);
+      } catch {
+        throw new Error(
+          `Service constructor requires either an existing OADA client or the connection config to create a new new connection. Attempt to create a new connection with the 'oada' argument failed.`
+        );
       }
     }
-    this.domain = this.oada.getDomain();
-    this.token = this.oada.getToken()[0]!;
-    this.concurrency = this.oada.getConcurrency();
-    if (obj.opts) {
-      this.opts = obj.opts;
+
+    this.domain = this.#oada.getDomain();
+    this.token = this.#oada.getToken()[0]!;
+    this.concurrency = this.#oada.getConcurrency();
+    if (object.opts) {
+      this.opts = object.opts;
     }
+  }
+
+  /**
+   * @param name The name of the report
+   * @param domainOrOada The domain of the queue to watch, or an existing oada client.
+   * @param reportConfig The configuration used to derive CSV rows from the jobs list.
+   * @param frequency A cron-like string describing the frequency of the emailer.
+   * @param email A callback used to generate the email job
+   * @param type The subservice type to report on
+   * @param token Token to use to connect to OADA if necessary
+   */
+  public addReport(
+    name: string,
+    domainOrOada: string | OADAClient,
+    reportConfig: ReportConfig,
+    frequency: string,
+    email: EmailConfigSetup,
+    type?: string,
+    token?: string
+  ): Report {
+    const report = new Report(
+      name,
+      domainOrOada,
+      reportConfig,
+      this,
+      frequency,
+      email,
+      type,
+      token
+    );
+    this.#reports.set(name, report);
+    return report;
+  }
+
+  /**
+   * Get a registered report
+   * @param name The name of the report
+   */
+  public getReport(name: string): Report | undefined {
+    return this.#reports.get(name);
   }
 
   /**
    * Start the service -- start and manage the configured queue
    */
-  private watchRequestId: string | string[] = ''
+  get #watchRequestId() {
+    return '';
+  }
 
   public async start(): Promise<void> {
-    await this.doQueue();
-    this.reports.forEach((r) => r.start())
+    await this.#doQueue();
+    for (const r of this.#reports.values()) {
+      r.start();
+    }
   }
 
   public async stop(): Promise<void> {
-    // I'm not sure in what scenario requestid would be an array of strings, but that's its type.
-    let arr: string[];
-    if (Array.isArray(this.watchRequestId)) {
-      arr = this.watchRequestId;
-    } else {
-      arr = [ this.watchRequestId ];
-    }
+    // I'm not sure in what scenario requestId would be an array of strings, but that's its type.
+    const array = Array.isArray(this.#watchRequestId)
+      ? this.#watchRequestId
+      : [this.#watchRequestId];
     // Stop all our watches:
-    await Promise.all(arr.map(requestid => this.oada.unwatch(requestid)));
+    await Promise.all(
+      array.map(async (requestId) => this.#oada.unwatch(requestId))
+    );
     // And stop all the queue's and their watches:
-    await this.stopQueue();
-    this.reports.forEach((r) => r.stop())
+    await this.#stopQueue();
+    for await (const r of this.#reports.values()) {
+      await r.stop();
+    }
   }
 
   /**
@@ -133,7 +196,7 @@ export class Service {
    * @param worker Worker function
    */
   public on(type: string, timeout: number, work: WorkerFunction): void {
-    this.workers.set(type, { work, timeout });
+    this.#workers.set(type, { work, timeout });
   }
 
   /**
@@ -141,16 +204,15 @@ export class Service {
    * @param type Type of job to de-register worker for
    */
   public off(type: string): void {
-    this.workers.delete(type);
+    this.#workers.delete(type);
   }
-
 
   /**
    * Fetch the registered worker for a job type
    * @param type Type of job
    */
   public getWorker(type: string): Worker {
-    const worker = this.workers.get(type);
+    const worker = this.#workers.get(type);
 
     if (!worker) {
       error('No worker registered for %s', type);
@@ -164,13 +226,13 @@ export class Service {
    * Obtain an OADAClient by domain, creating if needed
    */
   public getClient(domain: string): OADAClient {
-    let oada = this.clients.get(domain);
+    let oada = this.#clients.get(domain);
     if (!oada) {
       oada = new OADAClient({
-        domain: domain,
+        domain,
         concurrency: this.concurrency,
       });
-      this.clients.set(domain, oada);
+      this.#clients.set(domain, oada);
     }
 
     return oada;
@@ -179,62 +241,31 @@ export class Service {
   /**
    * Helper function to create and start a list of queues
    */
-  private async doQueue(): Promise<void> {
+  async #doQueue(): Promise<void> {
     try {
       assertQueue({
         token: this.token,
-        domain: this.domain
+        domain: this.domain,
       });
-      if (this.queue) {
-        await this.queue?.stop();
+      if (this.#queue) {
+        await this.#queue?.stop();
       }
 
-      const queue: Queue = new Queue(this, defaultServiceQueueName, this.oada);
+      const queue: Queue = new Queue(this, defaultServiceQueueName, this.#oada);
       await queue.start(this.opts?.skipQueueOnStartup);
-      this.queue = queue;
-    } catch (e) {
+      this.#queue = queue;
+    } catch (error_) {
       warn('Invalid queue');
-      debug('Invalid queue: %O', e);
+      debug('Invalid queue: %O', error_);
     }
   }
 
-  private async stopQueue(): Promise<void> {
+  async #stopQueue(): Promise<void> {
     try {
-      this.queue?.stop()
-    } catch (e) {
+      await this.#queue?.stop();
+    } catch (error_) {
       warn('Unable to stop queues');
-      debug('Unable to stop queue %0', e);
+      debug('Unable to stop queue %0', error_);
     }
-  }
-
-  /**
-   * @param name The name of the report
-   * @param domain_or_oada The domain of the queue to watch, or an existing oada client.
-   * @param reportConfig The configuration used to derive CSV rows from the jobs list.
-   * @param frequency A cron-like string describing the frequency of the emailer.
-   * @param email A callback used to generate the email job
-   * @param type The subservice type to report on
-   * @param token Token to use to connect to OADA if necessary
-   */
-  public addReport(
-    name: string,
-    domain_or_oada: string | OADAClient,
-    reportConfig: ReportConfig,
-    frequency: string,
-    email: EmailConfigSetup,
-    type?: string,
-    token?: string
-  ): Report {
-    let report = new Report(name, domain_or_oada, reportConfig, this, frequency, email, type, token);
-    this.reports.set(name, report)
-    return report;
-  }
-
-  /**
-   * Get a registered report
-   * @param name The name of the report
-   */
-  public getReport(name: string): Report | undefined {
-    return this.reports.get(name);
   }
 }

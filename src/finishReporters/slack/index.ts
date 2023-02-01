@@ -1,9 +1,9 @@
-import tiny from 'tiny-json-http'; // for finishReporters
+import tiny from 'tiny-json-http'; // For finishReporters
 import { error, info } from '../../utils.js';
 
-import type { FinishReporter, Service, Job } from '../.././index.js';
+import type { FinishReporter, Job, Service } from '../.././index.js';
 
-interface FinishParams {
+interface FinishParameters {
   config: FinishReporter;
   service: Service;
   finalpath: string;
@@ -12,9 +12,9 @@ interface FinishParams {
   status: string;
 }
 
-export async function onFinish(p: FinishParams): Promise<void> {
-  let domain = p.service.domain;
-  if (!domain.match(/^http/)) domain = 'https://' + domain;
+export async function onFinish(p: FinishParameters): Promise<void> {
+  let { domain } = p.service;
+  if (!domain.startsWith('http')) domain = `https://${domain}`;
 
   const message = {
     blocks: [
@@ -40,7 +40,7 @@ export async function onFinish(p: FinishParams): Promise<void> {
     attachments: [
       {
         blocks: [
-          // doing the code in an "attachement" makes it "secondary" and therefore collapsed by default
+          // Doing the code in an "attachement" makes it "secondary" and therefore collapsed by default
           {
             type: 'section',
             text: {
@@ -66,16 +66,16 @@ export async function onFinish(p: FinishParams): Promise<void> {
       data: message,
       headers: { 'content-type': 'application/json' },
     })
-    .then(() =>
+    .then(() => {
       info(
         'Successfully posted message to slack about job with status ',
         p.status
-      )
-    )
-    .catch((e: any) => {
+      );
+    })
+    .catch((error_: any) => {
       error(
         'finishReporters#slack: ERROR: failed to post message to slack!  Error was: ',
-        e
+        error_
       );
     });
 }

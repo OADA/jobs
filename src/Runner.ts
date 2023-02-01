@@ -1,24 +1,41 @@
-import moment, { Moment } from 'moment';
+/**
+ * @license
+ * Copyright 2023 Qlever LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import moment, { type Moment } from 'moment';
 import pTimeout, { TimeoutError } from 'p-timeout';
 import { serializeError } from 'serialize-error';
+
 import type { OADAClient } from '@oada/client';
 
-import type { Service } from './Service.js';
+import type { Json, JsonCompatible } from './index.js';
+import { debug, error, info, trace } from './utils.js';
 import { Job } from './Job.js';
 import { Logger } from './Logger.js';
-
-import { info, debug, error, trace } from './utils.js';
+import type { Service } from './Service.js';
 import { tree } from './tree.js';
-import type { Json, JsonCompatible } from './index.js';
 
 import { onFinish as slackOnFinish } from './finishReporters/slack/index.js';
 
 export class JobError extends Error {
-  "JobError"?: string;
-  constructor(m: string, t?: string) {
-    super(m)
+  'JobError'?: string;
+  'constructor'(m: string, t?: string) {
+    super(m);
 
-    this["JobError"] = t;
+    this.JobError = t;
   }
 }
 
@@ -26,10 +43,10 @@ export class JobError extends Error {
  * Manages a job and updates the associated job object as needed
  */
 export class Runner {
-  private service: Service;
-  private jobId: string;
-  private job: Job;
-  private oada: OADAClient;
+  readonly #service: Service;
+  readonly #jobId: string;
+  readonly #job: Job;
+  readonly #oada: OADAClient;
 
   /**
    * Create a Runner
@@ -39,10 +56,10 @@ export class Runner {
    * @param oada The OADAClient to use when runing the job
    */
   constructor(service: Service, jobId: string, job: Job, oada: OADAClient) {
-    this.service = service;
-    this.jobId = jobId;
-    this.job = job;
-    this.oada = oada;
+    this.#service = service;
+    this.#jobId = jobId;
+    this.#job = job;
+    this.#oada = oada;
   }
 
   /**
@@ -52,30 +69,30 @@ export class Runner {
    */
   public async run(): Promise<void> {
     // A quick check to ensure job isn't already completed
-    if (this.job.status === 'success' || this.job.status === 'failure') {
-      debug(`[Runner ${this.jobId}] Job already complete.`);
+    if (this.#job.status === 'success' || this.#job.status === 'failure') {
+      debug(`[Runner ${this.#jobId}] Job already complete.`);
 
       // Look for an update associated with the current status. Move to correct
       // event log.
-      for (const [, update] of Object.entries(this.job.updates || {})) {
-        if (update.status === this.job.status) {
-          trace(`[Runner ${this.jobId}] Found job completion time.`);
+      for (const [, update] of Object.entries(this.#job.updates ?? {})) {
+        if (update.status === this.#job.status) {
+          trace(`[Runner ${this.#jobId}] Found job completion time.`);
 
-          return this.finish(this.job.status, {}, update.time);
+          return this.finish(this.#job.status, {}, update.time);
         }
       }
 
-      trace(`[Runner ${this.jobId}] No completion time found. Using now.`);
-      return this.finish(this.job.status, {}, moment());
+      trace(`[Runner ${this.#jobId}] No completion time found. Using now.`);
+      return this.finish(this.#job.status, {}, moment());
     }
 
     try {
-      info(`[job ${this.jobId}] Starting`);
+      info(`[job ${this.#jobId}] Starting`);
 
-      const worker = this.service.getWorker(this.job.type);
+      const worker = this.#service.getWorker(this.#job.type);
 
       trace('Posting update to start job');
-      // Anotate the Runner finishing
+      // Annotate the Runner finishing
       await this.postUpdate('started', 'Runner started');
       trace('Update posted');
 
@@ -84,27 +101,26 @@ export class Runner {
       // promise does not support `cancel()`, then it could still complete even
       // though the event log will show a failure.
       const r = await pTimeout(
-        worker.work(this.job, {
-          jobId: this.jobId,
+        worker.work(this.#job, {
+          jobId: this.#jobId,
           log: new Logger(this),
-          oada: this.oada,
-        }), {
+          oada: this.#oada,
+        }),
+        {
           milliseconds: worker.timeout,
           message: `Job exceeded the allowed ${worker.timeout} ms running limit`,
         }
       );
 
-      info(`[job ${this.jobId}] Successful`);
+      info(`[job ${this.#jobId}] Successful`);
       await this.finish('success', r, moment());
-    } catch (e: any) {
-      error(`[job ${this.jobId}] Failed`);
-      trace(`[job ${this.jobId}] Error: %O`, e);
+    } catch (error_: any) {
+      error(`[job ${this.#jobId}] Failed`);
+      trace(`[job ${this.#jobId}] Error: %O`, error_);
 
-      if (e instanceof TimeoutError) {
-        await this.finish('failure', e, moment(), "timeout");
-      } else {
-        await this.finish('failure', e, moment(), e["JobError"]);
-      }
+      await (error_ instanceof TimeoutError
+        ? this.finish('failure', error_, moment(), 'timeout')
+        : this.finish('failure', error_, moment(), error_.JobError));
     }
   }
 
@@ -114,19 +130,26 @@ export class Runner {
    * @param meta Arbitrary JSON serializeable meta data about update
    */
   public async postUpdate(status: string, meta: Json): Promise<void> {
-    await this.oada.post({
-      path: `/${this.job.oadaId}/updates`,
-      // since we aren't using tree, we HAVE to set the content type or permissions fail
-      contentType: tree!.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
-      data: {
-        status,
-        time: moment().toISOString(),
-        meta,
-      },
-    }).catch(e => {
-      error('FAILED TO POST UPDATE TO OADA at /'+this.job.oadaId+'/updates.  status = ', e.status);
-      throw e;
-    });
+    try {
+      await this.#oada.post({
+        path: `/${this.#job.oadaId}/updates`,
+        // Since we aren't using tree, we HAVE to set the content type or permissions fail
+        contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
+        data: {
+          status,
+          time: moment().toISOString(),
+          meta,
+        },
+      });
+    } catch (error_: any) {
+      error(
+        `FAILED TO POST UPDATE TO OADA at /${
+          this.#job.oadaId
+        }/updates.  status = `,
+        error_.status
+      );
+      throw error_ as Error;
+    }
   }
 
   /**
@@ -136,101 +159,127 @@ export class Runner {
    * @param result Arbitrary JSON serializeable result data
    * @param time Finish time of the job
    */
-  public async finish<T extends JsonCompatible<T>>(
+  public async finish<T extends Json | JsonCompatible<T>>(
     status: 'success' | 'failure',
     result: T,
     time: string | Moment,
     failType?: string
   ): Promise<void> {
     // Update job status and result
-    let data = undefined as any;
-    if (result === null) {
-      data = { status };
-    } else {
-      data = { status, result };
-    }
+    let data;
+    data = result === null ? { status } : { status, result };
     if (failType) {
       data = {
-        status, result: serializeError(result)
-      }
+        status,
+        result: serializeError(result),
+      };
     }
-    trace('[job ', this.jobId, ']: putting to job resource the final {status,result} = ', data);
-    await this.oada.put({
-      path: `/${this.job.oadaId}`,
+
+    trace(
+      '[job ',
+      this.#jobId,
+      ']: putting to job resource the final {status,result} = ',
       data
+    );
+    await this.#oada.put({
+      path: `/${this.#job.oadaId}`,
+      data,
     });
 
-    // Anotate the Runner finishing
+    // Annotate the Runner finishing
     await this.postUpdate(status, 'Runner finshed');
-    if (typeof time === 'string' && !isNaN(+time)) time = moment(+time, 'X');
+    if (typeof time === 'string' && !Number.isNaN(time)) {
+      time = moment(Number(time), 'X');
+    }
 
     // Link into success/failure event log
     const date = moment(time).format('YYYY-MM-DD');
-    //const finalpath = `/bookmarks/services/${this.service.name}/jobs/${status}/day-index/${date}`;
-    let finalpath : any;
+    // Const finalpath = `/bookmarks/services/${this.service.name}/jobs/${status}/day-index/${date}`;
+    let finalpath: string | undefined;
     if (status === 'failure') {
-      finalpath = failType ?
-        `/bookmarks/services/${this.service.name}/jobs/${status}/${failType}/day-index/${date}`
-        : `/bookmarks/services/${this.service.name}/jobs/${status}/unknown/day-index/${date}`
-
+      finalpath = failType
+        ? `/bookmarks/services/${
+            this.#service.name
+          }/jobs/${status}/${failType}/day-index/${date}`
+        : `/bookmarks/services/${
+            this.#service.name
+          }/jobs/${status}/unknown/day-index/${date}`;
     } else if (status === 'success') {
-      finalpath = `/bookmarks/services/${this.service.name}/jobs/${status}/day-index/${date}`
+      finalpath = `/bookmarks/services/${
+        this.#service.name
+      }/jobs/${status}/day-index/${date}`;
     }
-    info('[job ',this.jobId,' ]: linking job to final resting place at ', finalpath);
-    await this.oada.put({
-      path: finalpath,
+
+    info(
+      '[job ',
+      this.#jobId,
+      ' ]: linking job to final resting place at ',
+      finalpath
+    );
+    await this.#oada.put({
+      path: finalpath!,
       data: {
-        [this.jobId]: {
-          _id: this.job.oadaId,
-          _rev: 0
+        [this.#jobId]: {
+          _id: this.#job.oadaId,
+          _rev: 0,
         },
       },
-      tree
+      tree,
     });
 
     // Remove from job queue
-    trace('[job ',this.jobId,' ]: removing from jobs queue');
-    await this.oada.delete({
-      path: `/bookmarks/services/${this.service.name}/jobs/pending/${this.jobId}`,
+    trace('[job ', this.#jobId, ' ]: removing from jobs queue');
+    await this.#oada.delete({
+      path: `/bookmarks/services/${this.#service.name}/jobs/pending/${
+        this.#jobId
+      }`,
     });
 
     // Notify the status reporter if there is one
     try {
-      const frs = this.service.opts?.finishReporters;
+      const frs = this.#service.opts?.finishReporters;
       if (frs) {
-        for (const [i, r] of Object.entries(frs)) {
-          trace('Checking finishReporters[%d] for proper status', i);
+        for await (const [index, r] of Object.entries(frs)) {
+          trace('Checking finishReporters[%d] for proper status', index);
           if (r.status !== status) {
             continue;
           }
+
           trace('Have matching status, checking r.type === %s', r.type);
+          // eslint-disable-next-line sonarjs/no-small-switch
           switch (r.type) {
-            case 'slack':
+            case 'slack': {
               trace(
                 'Handling slack finishReporter, getting final job object from OADA'
               );
-              const {job: finaljob } = await Job.fromOada(this.oada, this.job.oadaId);
+              const { job: finaljob } = await Job.fromOada(
+                this.#oada,
+                this.#job.oadaId
+              );
               trace(
                 'Have final job object from OADA, sending to slack finishReporter'
               );
               await slackOnFinish({
                 config: r,
-                service: this.service,
-                finalpath,
+                service: this.#service,
+                finalpath: finalpath!,
                 job: finaljob,
-                jobId: this.jobId,
+                jobId: this.#jobId,
                 status,
-              }); // get the whole final job object
+              }); // Get the whole final job object
               break;
-            default:
+            }
+
+            default: {
               error('Only slack finishReporter is supported, not %s', r.type);
               continue;
-          } // switch
-        } // for
-      } // if
-    } catch (e) {
-      error('#finishReporters: ERROR: uncaught exception = %O', e);
-      throw e;
+            }
+          } // Switch
+        } // For
+      } // If
+    } catch (error_) {
+      error('#finishReporters: ERROR: uncaught exception = %O', error_);
+      throw error_;
     }
   }
 }

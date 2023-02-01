@@ -1,24 +1,41 @@
-//import type { Job } from '@oada/jobs';
-import clone from 'clone-deep';
-import type EmailConfig from '@oada/types/trellis/service/abalonemail/config/email.js';
-import { ListWatch } from '@oada/list-lib';
-import type Job from '@oada/types/oada/service/job.js';
-//@ts-ignore
-import jp from 'json-pointer';
-import ksuid from 'ksuid';
-import type { JsonObject, OADAClient } from '@oada/client';
+/**
+ * @license
+ * Copyright 2023 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { CronJob } from 'cron';
-import moment from 'moment';
-//@ts-ignore
+import clone from 'clone-deep';
+// @ts-expect-error -- no types for csvjson
 import csvjson from 'csvjson';
 import debug from 'debug';
-import Promise from 'bluebird';
+import jp from 'json-pointer';
+import ksuid from 'ksuid';
+import moment from 'moment';
+
+// Import type { Job } from '@oada/jobs';
+import type { JsonObject, OADAClient } from '@oada/client';
+import type EmailConfig from '@oada/types/trellis/service/abalonemail/config/email.js';
+import type Job from '@oada/types/oada/service/job.js';
+import { ListWatch } from '@oada/list-lib';
+import type Tree from '@oada/types/oada/tree/v1.js';
+
 import type { Service } from './Service.js';
 import { tree } from './tree.js';
-
-//const error = debug('oada-jobs:connection:error');
+// Const error = debug('oada-jobs:connection:error');
 const info = debug('oada-jobs:connection:info');
-//const warn = debug('oada-jobs:connection:warn');
+// Const warn = debug('oada-jobs:connection:warn');
 const trace = debug('oada-jobs:connection:trace');
 
 export class Report {
@@ -32,13 +49,13 @@ export class Report {
   path: string;
   lastCron: string;
   noEmptyReports: boolean;
-  type: string | Array<string> | undefined;
+  type: string | string[] | undefined;
   listWatchFailures: ListWatch | undefined;
   listWatchSuccesses: ListWatch | undefined;
 
   /**
    * @param name The name of the report
-   * @param domain_or_oada The domain of the queue to watch, or an existing oada client.
+   * @param domainOrOada The domain of the queue to watch, or an existing oada client.
    * @param reportConfig The configuration used to derive CSV rows from the jobs list.
    * @param service The `Service` which the watch is operating under
    * @param frequency A cron-like string describing the frequency of the emailer.
@@ -49,29 +66,30 @@ export class Report {
    */
   constructor(
     name: string,
-    domain_or_oada: string | OADAClient,
+    domainOrOada: string | OADAClient,
     reportConfig: ReportConfig,
     service: Service,
     frequency: string,
     email: EmailConfigSetup,
     type?: string,
     token?: string,
-    noEmptyReports?: boolean,
+    noEmptyReports?: boolean
   ) {
     this.name = name;
     this.service = service;
     this.type = type;
     this.path = `/bookmarks/services/${this.service.name}/jobs/reports/${this.name}`;
-    if (typeof domain_or_oada === 'string') {
-      this.oada = this.service.getClient(domain_or_oada).clone(token || '');
+    if (typeof domainOrOada === 'string') {
+      this.oada = this.service.getClient(domainOrOada).clone(token ?? '');
     } else {
       debug(`[Report ${this.name}]: Using OADAClient from constructor`);
-      this.oada = domain_or_oada;
+      this.oada = domainOrOada;
     }
+
     this.reportConfig = reportConfig;
     this.email = email;
     this.frequency = frequency;
-    this.noEmptyReports = noEmptyReports || true;
+    this.noEmptyReports = noEmptyReports ?? true;
     this.mailer = new CronJob(
       this.frequency,
       this.sendEmail,
@@ -79,32 +97,35 @@ export class Report {
       true,
       'America/New_York',
       this
-    )
-    let interval : number = (this.mailer.nextDates(2) as any)[1].ts - (this.mailer.nextDates(1) as any)[0].ts;
-    //@ts-ignore
-    this.lastCron = moment((this.mailer.nextDates(1) as any)[0] - interval).format();
-    info(`Report ${this.name} created. Next run at ${(this.mailer.nextDates(1)as any)[0]}`);
+    );
+    const interval: number =
+      (this.mailer.nextDates(2) as any)[1].ts -
+      (this.mailer.nextDates(1) as any)[0].ts;
+    this.lastCron = moment(
+      (this.mailer.nextDates(1) as any)[0] - interval
+    ).format();
+    info(
+      `Report ${this.name} created. Next run at ${
+        (this.mailer.nextDates(1) as any)[0]
+      }`
+    );
   }
 
-  private async getAttachment(lastDate?: string, startDate?: string) {
-    let records = await this.gatherReportRecords(lastDate, startDate)
-    if (records.length < 1 && this.noEmptyReports) return undefined;
-    let csvdat = csvjson.toCSV(records, {delimiter: ",", wrap: false, headers: "relative"})
-    return Buffer.from(csvdat, 'utf8').toString('base64');
-  }
-
-  public async sendEmail(ecs?: EmailConfig, lastDate?: string, startDate?: string) {
-
-    let emailJob = {
-      "service": "abalonemail",
-      "type": "email",
-      "config": ecs || this.email(),
+  public async sendEmail(
+    ecs?: EmailConfig,
+    lastDate?: string,
+    startDate?: string
+  ) {
+    const emailJob = {
+      service: 'abalonemail',
+      type: 'email',
+      config: ecs ?? this.email(),
     };
 
     if (emailJob.config.attachments && emailJob.config.attachments.length > 0) {
-      let attach = await this.getAttachment(lastDate, startDate);
+      const attach = await this.#getAttachment(lastDate, startDate);
       if (attach) {
-        emailJob.config.attachments![0]!.content = attach;
+        emailJob.config.attachments[0]!.content = attach;
       } else {
         info(`[Report ${this.name}] sendEmail had no records to attach.`);
       }
@@ -113,7 +134,7 @@ export class Report {
       return;
     }
 
-    //TODO Assert the EmailConfig??
+    // TODO Assert the EmailConfig??
 
     // Queue the job to send the email
     const {
@@ -121,85 +142,44 @@ export class Report {
     } = await this.oada.post({
       path: `/resources`,
       data: emailJob as JsonObject,
-    })
+    });
 
-    if (!location) return
-    let id = location.replace(/^\/resources\//, '')
+    if (!location) return;
+    const id = location.replace(/^\/resources\//, '');
     await this.oada.put({
       path: `/bookmarks/services/abalonemail/jobs/pending`,
       data: {
-        [id]: {_id: `resources/${id}`}
+        [id]: { _id: `resources/${id}` },
       },
-      tree
-    })
+      tree,
+    });
     info(`[Report ${this.name}] sent email job to abalonemail.`);
   }
 
-  /*
-   * Function to gather the row entries to construct the csv
-   */
-  private async gatherReportRecords(lastDate?: string, lastCron?: string) {
-    let endTime = moment(lastDate || this.mailer.lastDate());
-    //Iterate over the day-index
-    let startTime = moment(lastCron || this.lastCron);
-    let curDate = moment(startTime.format('YYYY-MM-DD'));
-    let records = [];
-    let endDate = moment(endTime.format('YYYY-MM-DD'))
-    let midnight = moment(endTime.format('YYYY-MM-DD')).add(1, 'day');//midnight the next day is the end of the window for previous date
-    while (curDate <= endDate) {
-      let date = curDate.format('YYYY-MM-DD');
-
-      let day = await this.oada.get({
-        path: `${this.path}/day-index/${date}`
-      }).then(r => r.data as ReportRecords)
-      .catch(err => {
-        if (err.status !== 404) throw err;
-        return {} as ReportRecords;
-      })
-
-      // Remove oada keys, filter by time (key)
-      let items = Object.keys(day)
-        .filter(key => key.charAt(0) !== '_')
-        .filter(key => moment(ksuid.parse(key).date) < midnight)
-          // server offset
-//          let d = moment(ksuid.parse(key).date).subtract(4, 'minutes').subtract(15, 'seconds');
-//          return d < midnight
-//        })
-        .map(key => day[key])
-
-      records.push(...items);
-
-      curDate.add(1, 'day');
-    }
-
-    this.lastCron = this.mailer.lastDate().toString();
-    return records;
-  }
-
-  public stop() {
+  public async stop() {
     this.mailer.stop();
-    if (this.listWatchFailures) this.listWatchFailures.stop();
-    if (this.listWatchSuccesses) this.listWatchSuccesses.stop();
+    if (this.listWatchFailures) await this.listWatchFailures.stop();
+    if (this.listWatchSuccesses) await this.listWatchSuccesses.stop();
     info(`Report ${this.name} stopped.`);
   }
 
   public start() {
     this.mailer.start();
-    let serviceTree = clone(tree);
-    let star = jp.get(tree, '/bookmarks/services/*');
-    jp.set(serviceTree, `/bookmarks/services/${this.service.name}`, star)
+    const serviceTree = clone(tree);
+    const star: Tree = jp.get(tree, '/bookmarks/services/*') as Tree;
+    jp.set(serviceTree, `/bookmarks/services/${this.service.name}`, star);
     this.listWatchFailures = new ListWatch<Job>({
       conn: this.oada,
       path: `/bookmarks/services/${this.service.name}/jobs/failure`,
       name: `${this.name}-failwatch`,
       itemsPath: `$.*.day-index.*.*`,
       onAddItem: (job: any, id: any) => {
-        this.reportItem(this, job, id)
+        this.reportItem(this, job, id);
       },
       onNewList: ListWatch.AssumeHandled,
       tree: serviceTree,
-      resume: true
-    })
+      resume: true,
+    });
 
     this.listWatchSuccesses = new ListWatch<Job>({
       conn: this.oada,
@@ -207,14 +187,16 @@ export class Report {
       name: `${this.name}-successwatch`,
       itemsPath: `$.day-index.*.*`,
       onAddItem: (job: any, id: any) => {
-        this.reportItem(this, job, id)
+        this.reportItem(this, job, id);
       },
       onNewList: ListWatch.AssumeHandled,
       tree: serviceTree,
-      resume: true
-    })
+      resume: true,
+    });
 
-    info(`Report ${this.name} started with a frequency of [${this.frequency}].`);
+    info(
+      `Report ${this.name} started with a frequency of [${this.frequency}].`
+    );
   }
 
   /**
@@ -226,52 +208,52 @@ export class Report {
   public async reportItem(
     report: Report,
     job: Job,
-    path: string,
+    path: string
   ): globalThis.Promise<void> {
-
     if (!job) return;
 
-    //TODO: on first test, job.type was undefined. It should have a type to
-    //check here
+    // TODO: on first test, job.type was undefined. It should have a type to
+    // check here
     if (report.type && job.type && !report.type.includes(job.type)) {
-      trace(`[Report ${report.name}] Job was not of type ${report.type}. Skipping.`);
+      trace(
+        `[Report ${report.name}] Job was not of type ${report.type}. Skipping.`
+      );
       return;
     }
-    info(`Reporting ${report.name} on item.`)
-    let data: any = {};
-    //Trellis Result;
-    //Additional Reasons;
-    //FoodLogiQ Link;
-    let pieces = jp.parse(path);
-    let errorType: string | undefined, date: string, jobid: string;
+
+    info(`Reporting ${report.name} on item.`);
+    const data: any = {};
+    // Trellis Result;
+    // Additional Reasons;
+    // FoodLogiQ Link;
+    const pieces = jp.parse(path);
+    let errorType: string | undefined;
+    let date: string;
+    let jobid: string;
     if (pieces.length === 4) {
-      errorType = pieces[0];
-      date = pieces[2];
-      jobid = pieces[3];
+      errorType = pieces[0]!;
+      date = pieces[2]!;
+      jobid = pieces[3]!;
     } else {
-      date = pieces[1];
-      jobid = pieces[2]
+      date = pieces[1]!;
+      jobid = pieces[2]!;
     }
 
-    Object.entries(report.reportConfig.jobMappings).forEach(([colName, pointer]) => {
-      if (pointer === "errorMappings") {
-        if (errorType) {
-          data[colName] = report.reportConfig.errorMappings[errorType] || 'Other Error';
-        } else {
-          data[colName] = 'Success'
-        }
+    for (const [colName, pointer] of Object.entries(
+      report.reportConfig.jobMappings
+    )) {
+      if (pointer === 'errorMappings') {
+        data[colName] = errorType
+          ? report.reportConfig.errorMappings[errorType] ?? 'Other Error'
+          : 'Success';
       }
-    })
+    }
 
-    Object.entries(report.reportConfig.jobMappings)
-      .filter(([_, pointer]) => pointer !== "errorMappings")
-      .forEach(([colName, pointer]) => {
-        if (jp.has(job, pointer)) {
-          data[colName] = jp.get(job, pointer);
-        } else {
-          data[colName] = '';
-        }
-      })
+    for (const [colName, pointer] of Object.entries(
+      report.reportConfig.jobMappings
+    ).filter(([_, pointer]) => pointer !== 'errorMappings')) {
+      data[colName] = jp.has(job, pointer) ? jp.get(job, pointer) : '';
+    }
 
     await report.oada.put({
       path: `${report.path}/day-index/${date}`,
@@ -279,83 +261,135 @@ export class Report {
         [jobid]: data,
       },
       tree,
-    })
+    });
+  }
+
+  async #getAttachment(lastDate?: string, startDate?: string) {
+    const records = await this.#gatherReportRecords(lastDate, startDate);
+    if (records.length === 0 && this.noEmptyReports) return;
+    const csvData = csvjson.toCSV(records, {
+      delimiter: ',',
+      wrap: false,
+      headers: 'relative',
+    });
+    return Buffer.from(csvData, 'utf8').toString('base64');
+  }
+
+  /**
+   * Function to gather the row entries to construct the csv
+   */
+  async #gatherReportRecords(lastDate?: string, lastCron?: string) {
+    const endTime = moment(lastDate ?? this.mailer.lastDate());
+    // Iterate over the day-index
+    const startTime = moment(lastCron ?? this.lastCron);
+    const currentDate = moment(startTime.format('YYYY-MM-DD'));
+    const records = [];
+    const endDate = moment(endTime.format('YYYY-MM-DD'));
+    const midnight = moment(endTime.format('YYYY-MM-DD')).add(1, 'day'); // Midnight the next day is the end of the window for previous date
+    while (currentDate <= endDate) {
+      const date = currentDate.format('YYYY-MM-DD');
+
+      let day: ReportRecords;
+      try {
+        // @ts-expect-error
+        // eslint-disable-next-line no-await-in-loop
+        ({ data: day } = await this.oada.get({
+          path: `${this.path}/day-index/${date}`,
+        }));
+      } catch (error: any) {
+        if (error.status !== 404) {
+          throw error as Error;
+        }
+
+        day = {};
+      }
+
+      // Remove oada keys, filter by time (key)
+      const items = Object.keys(day)
+        .filter((key) => !key.startsWith('_'))
+        .filter((key) => moment(ksuid.parse(key).date) < midnight)
+        // Server offset
+        //          let d = moment(ksuid.parse(key).date).subtract(4, 'minutes').subtract(15, 'seconds');
+        //          return d < midnight
+        //        })
+        .map((key) => day[key]);
+
+      records.push(...items);
+
+      currentDate.add(1, 'day');
+    }
+
+    this.lastCron = this.mailer.lastDate().toString();
+    return records;
   }
 }
 
 export async function reportOnItem(
   report: Report,
   job: Job,
-  path: string,
+  path: string
 ): globalThis.Promise<void> {
-
   if (!job) return;
 
-  //TODO: on first test, job.type was undefined. It should have a type to
-  //check here
+  // TODO: on first test, job.type was undefined. It should have a type to
+  // check here
   if (report.type && job.type && !report.type.includes(job.type)) {
-    trace(`[Report ${report.name}] Job was not of type ${report.type}. Skipping.`);
+    trace(
+      `[Report ${report.name}] Job was not of type ${report.type}. Skipping.`
+    );
     return;
   }
-  info(`Reporting ${report.name} on item.`)
-  let data: any = {};
-  //Trellis Result;
-  //Additional Reasons;
-  //FoodLogiQ Link;
-  let pieces = jp.parse(path);
-  let errorType: string | undefined, date: string, jobid: string;
+
+  info(`Reporting ${report.name} on item.`);
+  const data: any = {};
+  // Trellis Result;
+  // Additional Reasons;
+  // FoodLogiQ Link;
+  const pieces = jp.parse(path);
+  let errorType: string | undefined;
+  let date: string;
+  let jobId: string;
   if (pieces.length === 4) {
-    errorType = pieces[0];
-    date = pieces[2];
-    jobid = pieces[3];
+    errorType = pieces[0]!;
+    date = pieces[2]!;
+    jobId = pieces[3]!;
   } else {
-    date = pieces[1];
-    jobid = pieces[2]
+    date = pieces[1]!;
+    jobId = pieces[2]!;
   }
 
-  Object.entries(report.reportConfig.jobMappings).forEach(([colName, pointer]) => {
-    if (pointer === "errorMappings") {
-      if (errorType) {
-        data[colName] = report.reportConfig.errorMappings[errorType] || 'Other Error';
-      } else {
-        data[colName] = 'Success'
-      }
+  for (const [colName, pointer] of Object.entries(
+    report.reportConfig.jobMappings
+  )) {
+    if (pointer === 'errorMappings') {
+      data[colName] = errorType
+        ? report.reportConfig.errorMappings[errorType] ?? 'Other Error'
+        : 'Success';
     }
-  })
+  }
 
-  Object.entries(report.reportConfig.jobMappings)
-    .filter(([_, pointer]) => pointer !== "errorMappings")
-    .forEach(([colName, pointer]) => {
-      data[colName] = jp.get(job, pointer) || '';
-    })
+  for (const [colName, pointer] of Object.entries(
+    report.reportConfig.jobMappings
+  ).filter(([_, pointer]) => pointer !== 'errorMappings')) {
+    data[colName] = jp.get(job, pointer) ?? '';
+  }
 
   await report.oada.put({
     path: `${report.path}/day-index/${date}`,
     data: {
-      [jobid]: data,
+      [jobId]: data,
     },
     tree,
-  })
+  });
 }
 
-
-export interface EmailConfigSetup{
-  (): EmailConfig
-}
+export type EmailConfigSetup = () => EmailConfig;
 
 export interface ReportConfig {
-  jobMappings: {
-    [key: string]: string;
-  };
-  errorMappings: {
-    [key: string]: string;
-  };
+  jobMappings: Record<string, string>;
+  errorMappings: Record<string, string>;
 }
 
-interface ReportRecords{
-  [key: string]: ReportRecord;
-}
+type ReportRecords = Record<string, ReportRecord>;
 
-interface ReportRecord{
-  [key: string]: string;
-}
+type ReportRecord = Record<string, string>;

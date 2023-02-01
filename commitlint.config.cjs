@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2023 Qlever LLC
+ * Copyright 2022 Open Ag Data Alliance
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,4 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-declare module 'tiny-json-http';
+
+/* eslint-disable import/no-commonjs */
+
+const config = {
+  extends: ['@commitlint/config-conventional'],
+};
+
+module.exports = config;

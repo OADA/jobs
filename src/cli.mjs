@@ -1,22 +1,42 @@
-#! /usr/bin/env node
-import oadaclient from '@oada/client';
-import minimist from 'minimist';
-import debug from 'debug';
-import Promise from 'bluebird';
-import moment from 'moment';
+#!/usr/bin/env node
+
+/**
+ * @license
+ * Copyright 2023 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* eslint-disable no-console, no-process-exit -- this is a CLI */
+
+import Bluebird from 'bluebird';
 import chalk from 'chalk';
 import colorjson from 'color-json';
+import debug from 'debug';
+import minimist from 'minimist';
+
+import { connect } from '@oada/client';
 
 const trace = debug('@oada/jobs#cli:trace');
 const info = console.log;
-const error = console.error;
+const { error } = console;
 
 let token = 'god-proxy';
 let domain = 'proxy';
 let queue = '';
 let oada = null;
 
-(async () => {
+try {
   const argv = minimist(process.argv.slice(2));
 
   // Sanity check args
@@ -24,36 +44,49 @@ let oada = null;
     argv['?'] ||
     argv.help ||
     !argv.q ||
-    // or retry must have jobid
+    // Or retry must have jobid
     (argv._[0] === 'retry' && argv._.length < 2) ||
-    // or print must have which to search for jobid and jobid
-    (argv._[0] === 'print' && (argv._.length < 3 || !argv._[1].match(/^jobs/)))
+    // Or print must have which to search for jobid and jobid
+    (argv._[0] === 'print' &&
+      (argv._.length < 3 || !argv._[1].startsWith('jobs')))
   ) {
-    return usage();
+    await usage();
+    process.exit(0);
   }
 
   // Fill in from flags
   if (argv.t) token = argv.t;
   if (argv.d) domain = argv.d;
-  if (!domain.match(/^http/)) domain = 'https://' + domain;
-  queue = argv.q.replace('/$', ''); // no trailing slash
+  if (!domain.startsWith('http')) domain = `https://${domain}`;
+  queue = argv.q.replace('/$', ''); // No trailing slash
 
   // Connect to oada globally
-  oada = await oadaclient.connect({ token, domain });
+  oada = await connect({ token, domain });
 
-  // Commands: retry
-  if (argv._[0] === 'retry') return retryJob(argv._[1]);
+  switch (argv._[0]) {
+    // Commands: retry
+    case 'retry': {
+      await retryJob(argv._[1]);
+      break;
+    }
 
-  // Commands: print
-  if (argv._[0] === 'print') return printJob(argv._[2], argv._[1]);
-  // Commands: list
-  else return list();
-})()
-  .then(() => process.exit(0))
-  .catch((e) => {
-    error(chalk.red('FAILED: ERROR was '), e);
-    process.exit(1);
-  });
+    // Commands: print
+    case 'print': {
+      await printJob(argv._[2], argv._[1]);
+      break;
+    }
+
+    // Commands: list
+    default: {
+      await list();
+    }
+  }
+} catch (error_) {
+  error(chalk.red('FAILED: ERROR was '), error_);
+  process.exit(1);
+}
+
+process.exit(0);
 
 function usage() {
   console.log(
@@ -80,9 +113,9 @@ function usage() {
   console.log('                    Job must be in failure queue.');
 }
 
-//---------------------------------------------------
+// ---------------------------------------------------
 // print
-//---------------------------------------------------
+// ---------------------------------------------------
 
 async function printJob(jid, which) {
   const { job } = await findJobByJobId(jid, which);
@@ -91,13 +124,14 @@ async function printJob(jid, which) {
       chalk.red('FAIL: could not find job by id ', jid, ' in ', which)
     );
   }
+
   info(chalk.cyan(`Printing job: ${jid}`));
   info(colorjson(job));
 }
 
-//---------------------------------------------------
+// ---------------------------------------------------
 // retry
-//---------------------------------------------------
+// ---------------------------------------------------
 
 async function retryJob(jobid) {
   const { job, day } = await findJobByJobId(jobid, 'jobs/failure');
@@ -134,7 +168,7 @@ async function findJobByJobId(jid, which) {
       job: await oada
         .get({ path: `${queue}/jobs/pending/${jid}` })
         .then((r) => d.data)
-        .catch((e) => null),
+        .catch((error_) => null),
     };
   }
 
@@ -147,9 +181,9 @@ async function findJobByJobId(jid, which) {
   trace(`findJobByJobId: days list is `, days);
 
   // For now to avoid server load, we'll fetch them one day at a time
-  for (let di in days) {
+  for (const di in days) {
     const d = days[di];
-    const daybase = `${base}/${d}`; // day-index/2020-07-21
+    const daybase = `${base}/${d}`; // Day-index/2020-07-21
     trace(`Looking for jobid ${jid} in ${daybase}`);
     const jobids = await oada.get({ path: daybase }).then((r) => r.data);
     if (jobids[jid]) {
@@ -160,19 +194,20 @@ async function findJobByJobId(jid, which) {
       };
     }
   }
+
   throw new Error(
     `ERROR: Failed to find the job ID after searching all the day-indexes in ${which}!`
   );
 }
 
-//-------------------------------------------------------------
+// -------------------------------------------------------------
 // list
-//-------------------------------------------------------------
+// -------------------------------------------------------------
 
 async function list() {
   const latest_success = await getMostRecentDayIndex('jobs/success');
   const latest_failure = await getMostRecentDayIndex('jobs/failure');
-  const { jobs, success, failure } = await Promise.props({
+  const { jobs, success, failure } = await Bluebird.props({
     jobs: oada.get({ path: `${queue}/jobs/pending` }).then((r) => r.data),
     success: oada
       .get({ path: `${queue}/jobs/success/day-index/${latest_success}` })
@@ -184,11 +219,7 @@ async function list() {
   trace(`jobs = `, jobs);
   trace(`success = `, success);
   trace(`failure = `, failure);
-  const re = chalk.red;
-  const gr = chalk.green;
   const wh = chalk.white;
-  const cy = chalk.cyan;
-  const ye = chalk.yellow;
 
   info(wh(`Listing jobs for queue ${queue}`));
   info(wh(`-------------------------------`));
@@ -198,20 +229,21 @@ async function list() {
 }
 
 function printJobs(jobs, label, color, day) {
-  let jobids = Object.keys(jobs).filter((k) => !k.match(/^_/));
+  const jobids = Object.keys(jobs).filter((k) => !k.startsWith('_'));
   info(color(`${label} Jobs${day ? ` (${day})` : ''}: ${jobids.length}`));
-  for (let j in jobids) {
-    info(color(`  ${jobids[j]}: ${JSON.stringify(jobs[jobids[j]])}`));
+  for (const index in jobids) {
+    info(color(`  ${jobids[index]}: ${JSON.stringify(jobs[jobids[index]])}`));
   }
+
   info();
   info(chalk.white(`-------------------------------`));
 }
 
 async function getMostRecentDayIndex(which) {
-  const list = await oada
-    .get({ path: `${queue}/${which}/day-index` })
-    .then((r) => r.data);
+  const { data: list } = await oada.get({
+    path: `${queue}/${which}/day-index`,
+  });
   const days = Object.keys(list).sort().reverse();
-  if (days.length < 1) return null;
+  if (days.length === 0) return null;
   return days[0];
 }
