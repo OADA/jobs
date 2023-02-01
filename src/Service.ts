@@ -14,7 +14,7 @@ export type Type = string;
 export type QueueId = string;
 export type JobId = string;
 
-import type { Json } from '.';
+import type { Json } from './index.js';
 
 export interface WorkerContext {
   jobId: string;
@@ -38,7 +38,8 @@ export interface FinishReporter {
 }
 export interface FinishReporters extends Array<FinishReporter> {}
 export interface ServiceOpts {
-  finishReporters: FinishReporters;
+  finishReporters?: FinishReporters;
+  skipQueueOnStartup?: boolean;
 }
 export interface ConstructorArgs {
   name: string,
@@ -106,12 +107,6 @@ export class Service {
   private watchRequestId: string | string[] = ''
 
   public async start(): Promise<void> {
-    /*
-    this.oada.put({
-      path: `/bookmarks/services/${this.name}/_meta`,
-      data: {'oada-jobs': { 'last-start': new Date().toISOString()}}
-    })
-    */
     await this.doQueue();
     this.reports.forEach((r) => r.start())
   }
@@ -195,7 +190,7 @@ export class Service {
       }
 
       const queue: Queue = new Queue(this, defaultServiceQueueName, this.oada);
-      await queue.start();
+      await queue.start(this.opts?.skipQueueOnStartup);
       this.queue = queue;
     } catch (e) {
       warn('Invalid queue');

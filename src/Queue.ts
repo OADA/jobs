@@ -39,7 +39,7 @@ export class Queue {
    * Opens the WATCH and begins procesing jobs
    */
   private watchRequestId: string | string[] = '';
-  public async start(): Promise<void> {
+  public async start(skipQueue: boolean=false): Promise<void> {
     const root = `/bookmarks/services/${this.service.name}`;
     const jobspath = `${root}/jobs/pending`;
     const successpath = `${root}/jobs/success`;
@@ -62,32 +62,35 @@ export class Queue {
         await this.oada.put({path: failurepath, data: {}, tree });
       });
 
+      let r: any;
 
-      info(`[QueueId ${this.id}] Getting initial set of jobs`);
-      const r = await this.oada.get({path: jobspath});
+      if (!skipQueue) {
 
-      if (r.status !== 200) {
-        throw new Error(
-          `[QueueId ${this.id}] Could not retrieve job queue list`
-        );
+        info(`[QueueId ${this.id}] Getting initial set of jobs`);
+        r = await this.oada.get({path: jobspath});
+
+        if (r.status !== 200) {
+          throw new Error(
+            `[QueueId ${this.id}] Could not retrieve job queue list`
+          );
+        }
+
+        // Clean up the resource and grab all existing jobs to run them before starting watch
+        trace(`[QueueId ${this.id}] Adding existing jobs`);
+        stripResource(r.data);
+        assertJobs(r.data);
+        this.doJobs(r.data);
+        trace(Object.keys(r.data).length, " existing jobs added and doJobs is complete, starting watch.");
+      } else {
+        info('Skipping existing jobs in the queue prior to startup.');
       }
+
       // Store the rev before we stripResource to start watch from later
       const watchopts: { path: string, rev?: number } = { path: jobspath };
       if (r?.data && typeof r.data ==='object' && '_rev' in r.data && typeof r.data._rev === 'number') {
         trace('[QueueId ',this.id,'] Initial jobs list at rev', r.data._rev,', starting watch from that point');
         watchopts.rev = r.data._rev;
       }
-
-      // Clean up the resource and grab all existing jobs to run them before starting watch
-      trace(`[QueueId ${this.id}] Adding existing jobs`);
-      stripResource(r.data);
-      assertJobs(r.data);
-      //TODO: I don't think this has to be await. If _any_ jobs are in a frozen
-      // state, e.g., target is not on, this will hang and the main process won't
-      // start at all.
-      //await this.doJobs(r.data);
-      this.doJobs(r.data);
-      trace(Object.keys(r.data).length, " jobs added and doJobs is complete, starting watch.");
 
       // Watch will be started from rev that we just processed
       const { changes, requestId } = await this.oada.watch(watchopts);

@@ -1,5 +1,5 @@
 import moment, { Moment } from 'moment';
-import pTimeout from 'p-timeout';
+import pTimeout, { TimeoutError } from 'p-timeout';
 import { serializeError } from 'serialize-error';
 import type { OADAClient } from '@oada/client';
 
@@ -9,9 +9,8 @@ import { Logger } from './Logger.js';
 
 import { info, debug, error, trace } from './utils.js';
 import { tree } from './tree.js';
-import type { JsonCompatible } from './index.js';
+import type { Json, JsonCompatible } from './index.js';
 
-import type { Json } from '.';
 import { onFinish as slackOnFinish } from './finishReporters/slack/index.js';
 
 export class JobError extends Error {
@@ -89,9 +88,10 @@ export class Runner {
           jobId: this.jobId,
           log: new Logger(this),
           oada: this.oada,
-        }),
-        worker.timeout,
-        `Job exceeded the allowed ${worker.timeout} ms running limit`
+        }), {
+          milliseconds: worker.timeout,
+          message: `Job exceeded the allowed ${worker.timeout} ms running limit`,
+        }
       );
 
       info(`[job ${this.jobId}] Successful`);
@@ -100,7 +100,7 @@ export class Runner {
       error(`[job ${this.jobId}] Failed`);
       trace(`[job ${this.jobId}] Error: %O`, e);
 
-      if (e instanceof pTimeout.TimeoutError) {
+      if (e instanceof TimeoutError) {
         await this.finish('failure', e, moment(), "timeout");
       } else {
         await this.finish('failure', e, moment(), e["JobError"]);

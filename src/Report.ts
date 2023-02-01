@@ -31,6 +31,7 @@ export class Report {
   mailer: CronJob;
   path: string;
   lastCron: string;
+  noEmptyReports: boolean;
   type: string | Array<string> | undefined;
   listWatchFailures: ListWatch | undefined;
   listWatchSuccesses: ListWatch | undefined;
@@ -44,6 +45,7 @@ export class Report {
    * @param email A callback used to generate the email job
    * @param type The subservice type to report on
    * @param token Token to use to connect to OADA if necessary
+   * @param noEmptyReports configure whether empty reports should be sent (default=true)
    */
   constructor(
     name: string,
@@ -54,6 +56,7 @@ export class Report {
     email: EmailConfigSetup,
     type?: string,
     token?: string,
+    noEmptyReports?: boolean,
   ) {
     this.name = name;
     this.service = service;
@@ -68,6 +71,7 @@ export class Report {
     this.reportConfig = reportConfig;
     this.email = email;
     this.frequency = frequency;
+    this.noEmptyReports = noEmptyReports || true;
     this.mailer = new CronJob(
       this.frequency,
       this.sendEmail,
@@ -84,6 +88,7 @@ export class Report {
 
   private async getAttachment(lastDate?: string, startDate?: string) {
     let records = await this.gatherReportRecords(lastDate, startDate)
+    if (records.length < 1 && this.noEmptyReports) return undefined;
     let csvdat = csvjson.toCSV(records, {delimiter: ",", wrap: false, headers: "relative"})
     return Buffer.from(csvdat, 'utf8').toString('base64');
   }
@@ -96,8 +101,13 @@ export class Report {
       "config": ecs || this.email(),
     };
 
-    if (emailJob.config.attachments!.length > 0) {
-      emailJob.config.attachments![0]!.content = await this.getAttachment(lastDate, startDate);
+    if (emailJob.config.attachments && emailJob.config.attachments.length > 0) {
+      let attach = await this.getAttachment(lastDate, startDate);
+      if (attach) {
+        emailJob.config.attachments![0]!.content = attach;
+      } else {
+        info(`[Report ${this.name}] sendEmail had no records to attach.`);
+      }
     } else {
       info(`[Report ${this.name}] sendEmail had no attachments.`);
       return;
@@ -183,7 +193,7 @@ export class Report {
       path: `/bookmarks/services/${this.service.name}/jobs/failure`,
       name: `${this.name}-failwatch`,
       itemsPath: `$.*.day-index.*.*`,
-      onAddItem: (job, id) => {
+      onAddItem: (job: any, id: any) => {
         this.reportItem(this, job, id)
       },
       onNewList: ListWatch.AssumeHandled,
@@ -196,7 +206,7 @@ export class Report {
       path: `/bookmarks/services/${this.service.name}/jobs/success`,
       name: `${this.name}-successwatch`,
       itemsPath: `$.day-index.*.*`,
-      onAddItem: (job, id) => {
+      onAddItem: (job: any, id: any) => {
         this.reportItem(this, job, id)
       },
       onNewList: ListWatch.AssumeHandled,

@@ -191,3 +191,33 @@ test('Should post a job to abalonemail when it is time to report', async (t) => 
   //@ts-ignore
   t.notDeepEqual(email.config.attachments[0].content, "");
 });
+
+/*
+test('Should not generate an abalonemail job when the report data is empty', async (t) => {
+  t.timeout(75_000);
+  const date = moment().format('YYYY-MM-DD');
+  //@ts-ignore
+  let wait = (reportTime - moment());
+  await setTimeout(wait > 0 ? wait+5000 : 0);
+
+  const result = await oada.get({
+    path: `${abalonemail}/${date}`,
+  }).then(r=>r.data as unknown as JsonObject);
+  t.truthy(result)
+
+  let keys = Object.keys(result).filter(key => key.charAt(0) !== '_');
+
+  keys = keys.sort();
+  t.true(keys.length > 0)
+
+  const email = await oada.get({
+    path: `${abalonemail}/${date}/${keys[keys.length-1]}`,
+  }).then(r=>r.data as unknown as Job);
+  t.is(email.config!.from, "noreply@trellis.one");
+  t.is(email.config!.subject, `Test Email - ${date}`);
+  //@ts-ignore
+  t.truthy(email.config && email.config.attachments && email.config.attachments[0]);
+  //@ts-ignore
+  t.notDeepEqual(email.config.attachments[0].content, "");
+  });
+*/
