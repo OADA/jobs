@@ -14,14 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import test from 'ava';
+
 import { domain, token } from './config.js';
-import { type OADAClient, connect } from '@oada/client';
+
 import { setTimeout } from 'node:timers/promises';
-import { oadaify } from '@oada/oadaify';
-import type OADAJob from '@oada/types/oada/service/job.js';
+
 import debug from 'debug';
 import moment from 'moment';
+
+import { type OADAClient, connect } from '@oada/client';
+import type OADAJob from '@oada/types/oada/service/job.js';
+import { oadaify } from '@oada/oadaify';
 
 import { deleteResourceAndLinkIfExists, postJob } from './utils.js';
 
@@ -134,17 +139,16 @@ test('Should move successful job to success queue, have status success, and stor
   const { key } = await postJob(oada, pending, successjob);
   await setTimeout(jobwaittime);
 
-  const result = await oada
-    .get({
+  try {
+    const { data: result } = await oada.get({
       path: `${success}/day-index/${dayindex}/${key}`,
-    })
-    .then((r) => r.data)
-    .catch((error_) => {
-      if (error_.status === 404) return false; // If it's not there, just return false
-      throw error_; // Any other error, throw it back up
     });
-  t.is((result as OADAJob)?.status, 'success');
-  t.deepEqual((result as OADAJob)?.result, { success: true }); // This is what the basic service handler returns
+    t.is((result as OADAJob)?.status, 'success');
+    t.deepEqual((result as OADAJob)?.result, { success: true }); // This is what the basic service handler returns
+  } catch (error_: any) {
+    if (error_.status === 404) return false; // If it's not there, just return false
+    throw error_ as Error; // Any other error, throw it back up
+  }
 });
 
 test('Should move failed job to failure queue, have status failure', async (t) => {
@@ -152,17 +156,16 @@ test('Should move failed job to failure queue, have status failure', async (t) =
   const { key } = await postJob(oada, pending, failjob);
   await setTimeout(jobwaittime);
 
-  const result = await oada
-    .get({
+  try {
+    const { data: result } = await oada.get({
       path: `${failure}/day-index/${dayindex}/${key}`,
-    })
-    .then((r) => r.data)
-    .catch((error_) => {
-      if (error_.status === 404) return false; // If it's not there, just return false
-      throw error_; // Any other error, throw it back up
     });
-  t.not(result, false); // It should be in the failure queue
-  t.is((result as OADAJob)?.status, 'failure');
+    t.not(result, false); // It should be in the failure queue
+    t.is((result as OADAJob)?.status, 'failure');
+  } catch (error_: any) {
+    if (error_.status === 404) return false; // If it's not there, just return false
+    throw error_ as Error; // Any other error, throw it back up
+  }
 });
 
 test('Should fail a posted job that does not look like a job (missing config)', async (t) => {
@@ -170,17 +173,16 @@ test('Should fail a posted job that does not look like a job (missing config)', 
   const { key } = await postJob(oada, pending, { thisis: 'not a valid job' });
   await setTimeout(jobwaittime);
 
-  const result = await oada
-    .get({
+  try {
+    const { data: result } = await oada.get({
       path: `${failure}/day-index/${dayindex}/${key}`,
-    })
-    .then((r) => r.data)
-    .catch((error_) => {
-      if (error_.status === 404) return false; // If it's not there, just return false
-      throw error_; // Any other error, throw it back up
     });
-  t.not(result, false); // It should be in the failure queue
-  t.is((result as OADAJob)?.status, 'failure');
+    t.not(result, false); // It should be in the failure queue
+    t.is((result as OADAJob)?.status, 'failure');
+  } catch (error_: any) {
+    if (error_.status === 404) return false; // If it's not there, just return false
+    throw error_ as Error; // Any other error, throw it back up
+  }
 });
 
 test('Should allow job created with a tree put (can lead to empty job content for a moment)', async (t) => {
@@ -192,23 +194,23 @@ test('Should allow job created with a tree put (can lead to empty job content fo
     tree,
   });
   await setTimeout(jobwaittime);
-
-  const result = await oada
-    .get({
+  try {
+    const { data: result } = await oada.get({
       path: `${success}/day-index/${dayindex}/${key}`,
-    })
-    .then((r) => r.data)
-    .catch((error_) => {
-      if (error_.status === 404) return false; // If it's not there, just return false
-      throw error_; // Any other error, throw it back up
     });
-  t.not(result, false); // It should be in the failure queue
-  t.is((result as OADAJob)?.status, 'success');
+
+    t.not(result, false); // It should be in the failure queue
+    t.is((result as OADAJob)?.status, 'success');
+  } catch (error_: any) {
+    if (error_.status === 404) return false; // If it's not there, just return false
+    throw error_ as Error; // Any other error, throw it back up
+  }
 });
 
 test('Should allow connection with existing OADAClient', async (t) => {
   const con = await connect({ domain, token });
   t.notThrows(() => {
+    // eslint-disable-next-line no-new
     new Service({
       name,
       oada: con,
@@ -216,8 +218,9 @@ test('Should allow connection with existing OADAClient', async (t) => {
   });
 });
 
-test('Should allow connection with new connection Config', async (t) => {
+test('Should allow connection with new connection Config', (t) => {
   t.notThrows(() => {
+    // eslint-disable-next-line no-new
     new Service({
       name,
       oada: { domain, token },

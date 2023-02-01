@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import type { ConnectionResponse, Json, OADAClient } from '@oada/client';
+
 import { tree } from '../dist/tree.js';
 
 export async function deleteResourceAndLinkIfExists(
@@ -48,7 +50,7 @@ export async function postJob(
       data: job as unknown as Json,
       contentType: tree.bookmarks!.services!['*']!.jobs!._type,
     })
-    .then((r) => r.headers['content-location']?.replace(/^\//, '') || ''); // Get rid of leading slash for link
+    .then((r) => r.headers['content-location']?.replace(/^\//, '') ?? ''); // Get rid of leading slash for link
 
   // 2: Now post a link to that job
   const key = await oada
@@ -59,8 +61,8 @@ export async function postJob(
     })
     .then(
       (r) =>
-        r.headers['content-location']?.replace(/\/resources\/[^/]+\//, '') || ''
-    ); // Get rid of resourceid to get the new key
+        r.headers['content-location']?.replace(/\/resources\/[^/]+\//, '') ?? ''
+    ); // Get rid of resourceId to get the new key
 
   return { _id, key };
 }

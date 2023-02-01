@@ -56,12 +56,13 @@
   "cSpell.words": [
     "Buildx",
     "codeql",
+    "foodlogiq",
     "ksuid",
     "lcov",
+    "oadaify",
     "pino",
     "Snyk",
     "sonarjs",
-    "foodlogiq",
     "trellisfw"
   ],
   "eslint.format.enable": true,

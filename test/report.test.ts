@@ -14,14 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import test from 'ava';
+
 import { domain, token } from './config.js';
-import { type JsonObject, type OADAClient, connect } from '@oada/client';
+
 import { setTimeout } from 'node:timers/promises';
-import { oadaify } from '@oada/oadaify';
-import type Job from '@oada/types/oada/service/job.js';
+
 import debug from 'debug';
 import moment from 'moment';
+
+import { type JsonObject, type OADAClient, connect } from '@oada/client';
+import type Job from '@oada/types/oada/service/job.js';
+import { oadaify } from '@oada/oadaify';
 
 import { deleteResourceAndLinkIfExists, postJob } from './utils.js';
 
@@ -33,8 +38,6 @@ const error = debug('all.test.ts:error');
 
 const name = 'JOBSTEST'; // +(new Date()).getTime();
 const root = `/bookmarks/services/${name}`;
-const success = `/bookmarks/services/${name}/jobs/success`;
-// Const failure = `/bookmarks/services/${name}/jobs/failure`;
 const pending = `/bookmarks/services/${name}/jobs/pending`;
 const reportname = 'test-report';
 const reportPath = `bookmarks/services/${name}/jobs/reports/${reportname}`;
