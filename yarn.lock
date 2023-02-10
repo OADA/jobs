@@ -466,7 +466,7 @@ __metadata:
     "@ava/typescript": ^3.0.1
     "@commitlint/config-conventional": ^17.4.2
     "@oada/client": ^4.5.0
-    "@oada/list-lib": ^4.2.4
+    "@oada/list-lib": ^4.2.6
     "@oada/oadaify": ^2.1.0
     "@oada/types": ^3.3.0
     "@sindresorhus/is": ^5.3.0
@@ -538,9 +538,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@oada/list-lib@npm:^4.2.4":
-  version: 4.2.4
-  resolution: "@oada/list-lib@npm:4.2.4"
+"@oada/list-lib@npm:^4.2.6":
+  version: 4.2.6
+  resolution: "@oada/list-lib@npm:4.2.6"
   dependencies:
     "@oada/types": ^3.3.0
     abort-controller: ^3.0.0
@@ -553,7 +553,7 @@ __metadata:
     tslib: ^2.4.1
   peerDependencies:
     "@oada/client": ^4.3.2
-  checksum: 06d05e4ed5fec831793aa31ce218d327c40ec313820bad42296782dad7350858d21644f8bab78a606022e85b69cf614b72f8a600d43c0939ddf1bd390dc8f6f9
+  checksum: 083e8cfc820192bbd18c83748b362fbdf8e73899d9a8e19ec9dc490219323a6645c265da63a280dc49137637ed5f891951e0aa8aa19ec6f52a4dcc0558888068
   languageName: node
   linkType: hard
 

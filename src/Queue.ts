@@ -213,6 +213,7 @@ export class Queue {
       Object.keys(jobs),
       async (jobId) => {
         // Fetch the job
+        if (!jobs[jobId]!._id) return;
         const { job, isJob } = await Job.fromOada(this.oada, jobs[jobId]!._id);
 
         // Instantiate a runner to manage the job
