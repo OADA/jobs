@@ -18,9 +18,12 @@
 import Bluebird from 'bluebird';
 import moment from 'moment';
 
+import type { Link } from '@oada/types/oada.js';
 import type { OADAClient } from '@oada/client';
 import type OADAJobs from '@oada/types/oada/service/jobs.js';
-import { assert as assertJobs } from '@oada/types/oada/service/jobs.js';
+import type OADAJobsChange from '@oada/types/oada/service/jobs-change.js';
+//TODO: Fix this type and get it back in here
+//import { assert as assertJobs } from '@oada/types/oada/service/jobs-change.js';
 
 import { Job } from './Job.js';
 import { Runner } from './Runner.js';
@@ -123,11 +126,11 @@ export class Queue {
 
         // Clean up the resource and grab all existing jobs to run them before starting watch
         trace(`[QueueId ${this.id}] Adding existing jobs`);
-        stripResource(r.data);
-        assertJobs(r.data);
-        this.#doJobs(r.data);
+        const jobs = stripResource(r.data);
+        //assertJobs(jobs);
+        this.#doJobs(jobs);
         trace(
-          Object.keys(r.data).length,
+          Object.keys(jobs).length,
           ' existing jobs added and doJobs is complete, starting watch.'
         );
       }
@@ -162,13 +165,13 @@ export class Queue {
           // Catch error in callback to avoid nodejs crash on error
           try {
             const jobs = stripResource(change.body);
-            assertJobs(jobs);
+            //assertJobs(jobs);
             trace(
               '[QueueId %s] jobs found in change:',
               this.id,
               Object.keys(jobs)
             );
-            this.#doJobs(jobs);
+            this.#doJobs(jobs as OADAJobsChange);
           } catch (error_) {
             trace('The change was not a `Jobs`, %O', error_);
             // Shouldn't it fail the job?
@@ -207,14 +210,15 @@ export class Queue {
   /**
    * Helper function to create and start jobs from the queue
    */
-  async #doJobs(jobs: OADAJobs): Promise<void> {
+  async #doJobs(jobs: OADAJobs | OADAJobsChange): Promise<void> {
     // Queue up the Runners in parallel
     await Bluebird.map(
-      Object.keys(jobs),
-      async (jobId) => {
+      Object.entries(jobs),
+      async ([jobId, value]) => {
+        const { _id } = value as Link;
+        if (!_id) return;
         // Fetch the job
-        if (!jobs[jobId]!._id) return;
-        const { job, isJob } = await Job.fromOada(this.oada, jobs[jobId]!._id);
+        const { job, isJob } = await Job.fromOada(this.oada, _id);
 
         // Instantiate a runner to manage the job
         const runner = new Runner(this.service, jobId, job, this.oada);

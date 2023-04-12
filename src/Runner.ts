@@ -188,7 +188,7 @@ export class Runner {
 
     // Annotate the Runner finishing
     await this.postUpdate(status, 'Runner finshed');
-    if (typeof time === 'string' && !Number.isNaN(time)) {
+    if (typeof time === 'string' && !Number.isNaN(Number(time))) {
       time = moment(Number(time), 'X');
     }
 

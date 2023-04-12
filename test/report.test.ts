@@ -246,8 +246,8 @@ test('Should post a job to abalonemail when it is time to report', async (t) => 
     .then((r) => r.data as unknown as Job);
   t.is(email.config!.from, 'noreply@trellis.one');
   t.is(email.config!.subject, `Test Email - ${date}`);
-  // @ts-expect-error
   t.truthy(
+    // @ts-expect-error skip for now
     email.config && email.config.attachments && email.config.attachments[0]
   );
   // @ts-expect-error

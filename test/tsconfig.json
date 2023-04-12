@@ -4,6 +4,7 @@
     "allowJs": true,
     "rootDir": ".",
     "noUnusedLocals": false,
+    "noImplicitReturns": false,
     "outDir": "../.test"
   },
   "include": ["."],

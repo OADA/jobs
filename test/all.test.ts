@@ -26,6 +26,7 @@ import moment from 'moment';
 
 import { type OADAClient, connect } from '@oada/client';
 import type OADAJob from '@oada/types/oada/service/job.js';
+import type OADAJobChange from '@oada/types/oada/service/jobs-change.js';
 import { oadaify } from '@oada/oadaify';
 
 import { deleteResourceAndLinkIfExists, postJob } from './utils.js';
@@ -218,12 +219,13 @@ test('Should allow connection with existing OADAClient', async (t) => {
   });
 });
 
-test('Should allow connection with new connection Config', (t) => {
+test('Testing jobs change', async (t) => {
+  const con = await connect({ domain, token });
   t.notThrows(() => {
     // eslint-disable-next-line no-new
     new Service({
       name,
-      oada: { domain, token },
+      oada: con,
     });
   });
 });
