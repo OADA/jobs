@@ -168,7 +168,7 @@ export class Runner {
     // Update job status and result
     let data;
     data = result === null ? { status } : { status, result };
-    if (failType) {
+    if (failType ?? result instanceof Error) {
       data = {
         status,
         result: serializeError(result),
