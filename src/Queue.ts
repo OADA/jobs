@@ -214,20 +214,20 @@ export class Queue {
     // Queue up the Runners in parallel
     await Bluebird.map(
       Object.entries(jobs),
-      async ([jobId, value]) => {
+      async ([jobKey, value]) => {
         const { _id } = value as Link;
         if (!_id) return;
         // Fetch the job
         const { job, isJob } = await Job.fromOada(this.oada, _id);
 
         // Instantiate a runner to manage the job
-        const runner = new Runner(this.service, jobId, job, this.oada);
+        const runner = new Runner(this.service, jobKey, job, this.oada, _id);
 
         if (!isJob) {
           runner.finish('failure', {}, moment());
         }
 
-        trace(`[QueueId: ${this.id}] Starting runner for ${jobId}`);
+        trace(`[QueueId: ${this.id}] Starting runner for ${jobKey}`);
         await runner.run();
       },
       { concurrency: 100 }

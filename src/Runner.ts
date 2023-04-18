@@ -44,6 +44,7 @@ export class JobError extends Error {
  */
 export class Runner {
   readonly #service: Service;
+  readonly #jobKey: string;
   readonly #jobId: string;
   readonly #job: Job;
   readonly #oada: OADAClient;
@@ -51,13 +52,20 @@ export class Runner {
   /**
    * Create a Runner
    * @param service The service which the Runner is completing a job for
-   * @param jobId The ID of the Job
+   * @param jobId The resource ID of the Job
    * @param job The associated job
    * @param oada The OADAClient to use when runing the job
    */
-  constructor(service: Service, jobId: string, job: Job, oada: OADAClient) {
+  constructor(
+    service: Service,
+    jobKey: string,
+    job: Job,
+    oada: OADAClient,
+    jobId: string
+  ) {
     this.#service = service;
     this.#jobId = jobId;
+    this.#jobKey = jobKey;
     this.#job = job;
     this.#oada = oada;
   }
