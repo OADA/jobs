@@ -45,14 +45,13 @@ export class JobError extends Error {
 export class Runner {
   readonly #service: Service;
   readonly #jobKey: string;
-  readonly #jobId: string;
   readonly #job: Job;
   readonly #oada: OADAClient;
 
   /**
    * Create a Runner
    * @param service The service which the Runner is completing a job for
-   * @param jobId The resource ID of the Job
+   * @param jobKey The key used in the lists of the Job
    * @param job The associated job
    * @param oada The OADAClient to use when runing the job
    */
@@ -61,10 +60,8 @@ export class Runner {
     jobKey: string,
     job: Job,
     oada: OADAClient,
-    jobId: string
   ) {
     this.#service = service;
-    this.#jobId = jobId;
     this.#jobKey = jobKey;
     this.#job = job;
     this.#oada = oada;
@@ -78,24 +75,24 @@ export class Runner {
   public async run(): Promise<void> {
     // A quick check to ensure job isn't already completed
     if (this.#job.status === 'success' || this.#job.status === 'failure') {
-      debug(`[Runner ${this.#jobId}] Job already complete.`);
+      debug(`[Runner ${this.#job.oadaId}] Job already complete.`);
 
       // Look for an update associated with the current status. Move to correct
       // event log.
       for (const [, update] of Object.entries(this.#job.updates ?? {})) {
         if (update.status === this.#job.status) {
-          trace(`[Runner ${this.#jobId}] Found job completion time.`);
+          trace(`[Runner ${this.#job.oadaId}] Found job completion time.`);
 
           return this.finish(this.#job.status, {}, update.time);
         }
       }
 
-      trace(`[Runner ${this.#jobId}] No completion time found. Using now.`);
+      trace(`[Runner ${this.#job.oadaId}] No completion time found. Using now.`);
       return this.finish(this.#job.status, {}, moment());
     }
 
     try {
-      info(`[job ${this.#jobId}] Starting`);
+      info(`[job ${this.#job.oadaId}] Starting`);
 
       const worker = this.#service.getWorker(this.#job.type);
 
@@ -110,7 +107,7 @@ export class Runner {
       // though the event log will show a failure.
       const r = await pTimeout(
         worker.work(this.#job, {
-          jobId: this.#jobId,
+          jobId: this.#job.oadaId,
           log: new Logger(this),
           oada: this.#oada,
         }),
@@ -120,11 +117,11 @@ export class Runner {
         }
       );
 
-      info(`[job ${this.#jobId}] Successful`);
+      info(`[job ${this.#job.oadaId}] Successful`);
       await this.finish('success', r, moment());
     } catch (error_: any) {
-      error(`[job ${this.#jobId}] Failed`);
-      trace(`[job ${this.#jobId}] Error: %O`, error_);
+      error(`[job ${this.#job.oadaId}] Failed`);
+      trace(`[job ${this.#job.oadaId}] Error: %O`, error_);
 
       await (error_ instanceof TimeoutError
         ? this.finish('failure', error_, moment(), 'timeout')
@@ -184,11 +181,7 @@ export class Runner {
     }
 
     trace(
-      '[job ',
-      this.#jobId,
-      ']: putting to job resource the final {status,result} = ',
-      data
-    );
+      `[job ${this.#job.oadaId} ]: putting to job resource the final {status,result} = ${data}`);
     await this.#oada.put({
       path: `/${this.#job.oadaId}`,
       data,
@@ -218,16 +211,11 @@ export class Runner {
       }/jobs/${status}/day-index/${date}`;
     }
 
-    info(
-      '[job ',
-      this.#jobId,
-      ' ]: linking job to final resting place at ',
-      finalpath
-    );
+    info(`[job ${this.#job.oadaId} ]: linking job to final resting place at ${finalpath}`);
     await this.#oada.put({
       path: finalpath!,
       data: {
-        [this.#jobId]: {
+        [this.#jobKey]: {
           _id: this.#job.oadaId,
           _rev: 0,
         },
@@ -236,10 +224,10 @@ export class Runner {
     });
 
     // Remove from job queue
-    trace('[job ', this.#jobId, ' ]: removing from jobs queue');
+    trace(`[job ${this.#job.oadaId} ]: removing from jobs queue`);
     await this.#oada.delete({
       path: `/bookmarks/services/${this.#service.name}/jobs/pending/${
-        this.#jobId
+        this.#jobKey
       }`,
     });
 
@@ -272,7 +260,7 @@ export class Runner {
                 service: this.#service,
                 finalpath: finalpath!,
                 job: finaljob,
-                jobId: this.#jobId,
+                jobId: this.#job.oadaId,
                 status,
               }); // Get the whole final job object
               break;

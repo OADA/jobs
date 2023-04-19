@@ -73,57 +73,15 @@ export async function postJob(
     .then((r) => r.headers['content-location']?.replace(/^\//, '') ?? ''); // Get rid of leading slash for link
 
   // 2: Now post a link to that job
-  const key = await oada
-    .post({
-      path,
-      data: { _id },
-      contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
-    })
-    .then(
-      (r) =>
-        r.headers['content-location']?.replace(/\/resources\/[^/]+\//, '') ?? ''
-    ); // Get rid of resourceid to get the new key
-
-  return { _id, key };
-}
-
-/*
-export async function runJob(
-  oada: OADAClient,
-  path: string,
-  job: Json
-): Promise<{ job: Json | undefined }> {
-  // 1:Create a resource for the job and keep resourceid to return
-  let post = await oada.post({
-    path: '/resources',
-    data: job as unknown as Json,
-    contentType: tree.bookmarks!.services!['*']!.jobs!.pending!._type,
-  });
-  // Get rid of leading slash for link
-  const _id = post.headers['content-location']?.replace(/^\//, '') ?? '';
-
-  const { changes } = await oada.watch({
-    path: `/${_id}`,
-  });
-
-  // 2: Now post a link to that job
-  post = await oada.post({
-    path,
+  const key = _id.replace(/^resources\//, '');
+  await oada.put({
+    path: `${path}/${key}`,
     data: { _id },
     contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
   });
 
-  // Get rid of resourceid to get the new key
-  const key =
-    post.headers['content-location']?.replace(/\/resources\/[^/]+\//, '') ?? '';
-
-  for await (const change of changes) {
-//    console.log({change})
-    if (change.status !== undefined && change.result !== null)
-      return { job: change.result as unknown as Json };
-  }
+  return { _id, key };
 }
-  */
 
 /**
  * Posts an update message to the Job's OADA object.

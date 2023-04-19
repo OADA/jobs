@@ -221,7 +221,7 @@ export class Queue {
         const { job, isJob } = await Job.fromOada(this.oada, _id);
 
         // Instantiate a runner to manage the job
-        const runner = new Runner(this.service, jobKey, job, this.oada, _id);
+        const runner = new Runner(this.service, jobKey, job, this.oada);
 
         if (!isJob) {
           runner.finish('failure', {}, moment());
