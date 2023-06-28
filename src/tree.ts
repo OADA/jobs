@@ -44,6 +44,7 @@ export const tree: Tree = {
           },
           success: {
             '_type': 'application/vnd.oada.service.jobs.1+json',
+            '_rev': 0,
             'day-index': {
               '*': {
                 '_type': 'application/vnd.oada.service.jobs.1+json',
@@ -57,6 +58,7 @@ export const tree: Tree = {
           },
           failure: {
             '_type': 'application/vnd.oada.service.jobs.1+json',
+            '_rev': 0,
             'day-index': {
               '*': {
                 '_type': 'application/vnd.oada.service.jobs.1+json',

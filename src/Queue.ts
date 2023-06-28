@@ -43,19 +43,15 @@ export class Queue {
   /**
    * Creates queue watcher
    * @param service The `Service` which the watch is operating under
-   * @param domainOrOada The domain of the queue to watch, or an existing OADA client to use
    * @param token? The token for the queue to watch, or undefined if an OADA client was passed
    */
-  constructor(
-    service: Service,
-    id: string,
-    domainOrOada: string | OADAClient,
-    token?: string
-  ) {
+  constructor(service: Service, id: string){//, token?: string) {
     this.id = id;
     this.service = service;
+    this.oada = service.getClient();//.clone(token ?? '');
+    /*
     if (typeof domainOrOada === 'string') {
-      this.oada = service.getClient(domainOrOada).clone(token ?? '');
+      this.oada = service.getClient().clone(token ?? '');
     } else {
       debug(
         '[Queue ',
@@ -64,6 +60,7 @@ export class Queue {
       );
       this.oada = domainOrOada;
     }
+    */
   }
 
   /**
@@ -77,61 +74,30 @@ export class Queue {
     const failurepath = `${root}/jobs/failure`;
 
     try {
-      // Ensure the job queue exists
-      try {
-        await this.oada.head({ path: jobspath });
-      } catch (error_: any) {
-        if (error_.status !== 404) {
-          throw error_ as Error;
-        }
+      await this.oada.ensure({
+        path: jobspath,
+        data: {},
+        tree,
+      });
 
-        await this.oada.put({ path: jobspath, data: {}, tree });
-      }
+      await this.oada.ensure({
+        path: failurepath,
+        data: {},
+        tree,
+      });
 
-      // Ensure the success list exists
-      try {
-        await this.oada.head({ path: successpath });
-      } catch (error_: any) {
-        if (error_.status !== 404) {
-          throw error_ as Error;
-        }
+      await this.oada.ensure({
+        path: successpath,
+        data: {},
+        tree,
+      });
 
-        await this.oada.put({ path: successpath, data: {}, tree });
-      }
+      info(`[QueueId ${this.id}] Getting initial set of jobs`);
+      const r = await this.oada.get({ path: jobspath });
 
-      // Ensure the failure list exists
-      try {
-        await this.oada.head({ path: failurepath });
-      } catch (error_: any) {
-        if (error_.status !== 404) {
-          throw error_ as Error;
-        }
-
-        await this.oada.put({ path: failurepath, data: {}, tree });
-      }
-
-      let r: any;
-
-      if (skipQueue) {
-        info('Skipping existing jobs in the queue prior to startup.');
-      } else {
-        info(`[QueueId ${this.id}] Getting initial set of jobs`);
-        r = await this.oada.get({ path: jobspath });
-
-        if (r.status !== 200) {
-          throw new Error(
-            `[QueueId ${this.id}] Could not retrieve job queue list`
-          );
-        }
-
-        // Clean up the resource and grab all existing jobs to run them before starting watch
-        trace(`[QueueId ${this.id}] Adding existing jobs`);
-        const jobs = stripResource(r.data);
-        //assertJobs(jobs);
-        this.#doJobs(jobs);
-        trace(
-          Object.keys(jobs).length,
-          ' existing jobs added and doJobs is complete, starting watch.'
+      if (r.status !== 200) {
+        throw new Error(
+          `[QueueId ${this.id}] Could not retrieve job queue list`
         );
       }
 
@@ -182,6 +148,20 @@ export class Queue {
       })();
 
       info(`[QueueId ${this.id}] Started WATCH.`);
+
+      if (skipQueue) {
+        info('Skipping existing jobs in the queue prior to startup.');
+      } else {
+        // Clean up the resource and grab all existing jobs to run them before starting watch
+        trace(`[QueueId ${this.id}] Adding existing jobs`);
+        const jobs = stripResource(r.data as Record<string, unknown>);
+        //assertJobs(jobs);
+        this.#doJobs(jobs as OADAJobs);
+        trace(
+          Object.keys(jobs).length,
+          ' existing jobs added and doJobs is complete, starting watch.'
+        );
+      }
     } catch (error_) {
       error(`[QueueId: ${this.id}] Failed to start WATCH, %O`, error_);
       throw new Error(`Failed to start watch ${this.id}`);

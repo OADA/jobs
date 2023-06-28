@@ -17,8 +17,7 @@
 
 import { CronJob } from 'cron';
 import clone from 'clone-deep';
-// @ts-expect-error -- no types for csvjson
-import csvjson from 'csvjson';
+import xlsx from 'xlsx';
 import debug from 'debug';
 import jp from 'json-pointer';
 import ksuid from 'ksuid';
@@ -26,9 +25,9 @@ import moment from 'moment';
 
 // Import type { Job } from '@oada/jobs';
 import type { JsonObject, OADAClient } from '@oada/client';
+import { AssumeState, ChangeType, ListWatch } from '@oada/list-lib';
 import type EmailConfig from '@oada/types/trellis/service/abalonemail/config/email.js';
 import type Job from '@oada/types/oada/service/job.js';
-import { ListWatch } from '@oada/list-lib';
 import type Tree from '@oada/types/oada/tree/v1.js';
 
 import type { Service } from './Service.js';
@@ -37,6 +36,17 @@ import { tree } from './tree.js';
 const info = debug('oada-jobs:connection:info');
 // Const warn = debug('oada-jobs:connection:warn');
 const trace = debug('oada-jobs:connection:trace');
+
+export interface ReportConstructor {
+  name: string;
+  service: Service;
+  frequency: string;
+  email: EmailConfigSetup;
+  reportConfig: ReportConfig;
+  filter?: (job: Job) => boolean;
+  type?: string;
+  sendEmpty?: boolean;
+}
 
 export class Report {
   name: string;
@@ -48,48 +58,35 @@ export class Report {
   mailer: CronJob;
   path: string;
   lastCron: string;
-  noEmptyReports: boolean;
+  sendEmpty?: boolean;
   type: string | string[] | undefined;
-  listWatchFailures: ListWatch | undefined;
-  listWatchSuccesses: ListWatch | undefined;
+  listWatchFailures?: ListWatch;
+  listWatchSuccesses?: ListWatch;
+  filter?: (job: Job) => boolean;
 
   /**
    * @param name The name of the report
-   * @param domainOrOada The domain of the queue to watch, or an existing oada client.
    * @param reportConfig The configuration used to derive CSV rows from the jobs list.
    * @param service The `Service` which the watch is operating under
    * @param frequency A cron-like string describing the frequency of the emailer.
    * @param email A callback used to generate the email job
    * @param type The subservice type to report on
-   * @param token Token to use to connect to OADA if necessary
-   * @param noEmptyReports configure whether empty reports should be sent (default=true)
+   * @param filter filter function for report entries
+   * @param sendEmpty configure whether empty reports should be sent (default=false)
+   * /
    */
-  constructor(
-    name: string,
-    domainOrOada: string | OADAClient,
-    reportConfig: ReportConfig,
-    service: Service,
-    frequency: string,
-    email: EmailConfigSetup,
-    type?: string,
-    token?: string,
-    noEmptyReports?: boolean
-  ) {
-    this.name = name;
-    this.service = service;
-    this.type = type;
+  constructor(rc: ReportConstructor) {
+    this.name = rc.name;
+    this.service = rc.service;
+    this.type = rc.type;
     this.path = `/bookmarks/services/${this.service.name}/jobs/reports/${this.name}`;
-    if (typeof domainOrOada === 'string') {
-      this.oada = this.service.getClient(domainOrOada).clone(token ?? '');
-    } else {
-      debug(`[Report ${this.name}]: Using OADAClient from constructor`);
-      this.oada = domainOrOada;
-    }
+    this.oada = this.service.getClient();
 
-    this.reportConfig = reportConfig;
-    this.email = email;
-    this.frequency = frequency;
-    this.noEmptyReports = noEmptyReports ?? true;
+    this.reportConfig = rc.reportConfig;
+    this.email = rc.email;
+    this.frequency = rc.frequency;
+    this.sendEmpty = rc.sendEmpty ?? false;
+    this.filter = rc.filter;
     this.mailer = new CronJob(
       this.frequency,
       this.sendEmail,
@@ -122,19 +119,18 @@ export class Report {
       config: ecs ?? this.email(),
     };
 
-    if (emailJob.config.attachments && emailJob.config.attachments.length > 0) {
+    if (emailJob?.config?.attachments && (emailJob.config.attachments.length ?? []) > 0) {
       const attach = await this.#getAttachment(lastDate, startDate);
       if (attach) {
         emailJob.config.attachments[0]!.content = attach;
       } else {
-        info(`[Report ${this.name}] sendEmail had no records to attach.`);
+        info(`[Report ${this.name}] sendEmail had no records to attach. Configuration to send empty emails: [${this.sendEmpty}]`);
+        if (!this.sendEmpty) return;
       }
     } else {
       info(`[Report ${this.name}] sendEmail had no attachments.`);
       return;
     }
-
-    // TODO Assert the EmailConfig??
 
     // Queue the job to send the email
     const {
@@ -168,6 +164,8 @@ export class Report {
     const serviceTree = clone(tree);
     const star: Tree = jp.get(tree, '/bookmarks/services/*') as Tree;
     jp.set(serviceTree, `/bookmarks/services/${this.service.name}`, star);
+
+    /*
     this.listWatchFailures = new ListWatch<Job>({
       conn: this.oada,
       path: `/bookmarks/services/${this.service.name}/jobs/failure`,
@@ -180,7 +178,25 @@ export class Report {
       tree: serviceTree,
       resume: true,
     });
+    */
+    this.listWatchFailures = new ListWatch({
+      conn: this.oada,
+      path: `/bookmarks/services/${this.service.name}/jobs/failure`,
+      name: `${this.name}-failwatch`,
+      itemsPath: `$.*.day-index.*.*`,
+      onNewList: AssumeState.Handled,
+      tree: serviceTree,
+      resume: true,
+    });
+    this.listWatchFailures.on(
+      ChangeType.ItemAdded,
+      async ({ item, pointer }) => {
+        const it = await item;
+        await this.reportItem(this, it as Job, pointer);
+      }
+    );
 
+    /*
     this.listWatchSuccesses = new ListWatch<Job>({
       conn: this.oada,
       path: `/bookmarks/services/${this.service.name}/jobs/success`,
@@ -193,6 +209,24 @@ export class Report {
       tree: serviceTree,
       resume: true,
     });
+    */
+
+    this.listWatchSuccesses = new ListWatch({
+      conn: this.oada,
+      path: `/bookmarks/services/${this.service.name}/jobs/success`,
+      name: `${this.name}-successwatch`,
+      itemsPath: `$.day-index.*.*`,
+      onNewList: AssumeState.Handled,
+      tree: serviceTree,
+      resume: true,
+    });
+    this.listWatchSuccesses.on(
+      ChangeType.ItemAdded,
+      async ({ item, pointer }) => {
+        const it = await item;
+        await this.reportItem(this, it as Job, pointer);
+      }
+    );
 
     info(
       `Report ${this.name} started with a frequency of [${this.frequency}].`
@@ -212,8 +246,6 @@ export class Report {
   ): globalThis.Promise<void> {
     if (!job) return;
 
-    // TODO: on first test, job.type was undefined. It should have a type to
-    // check here
     if (report.type && job.type && !report.type.includes(job.type)) {
       trace(
         `[Report ${report.name}] Job was not of type ${report.type}. Skipping.`
@@ -221,11 +253,14 @@ export class Report {
       return;
     }
 
+    // By default filter removes nothing. filter should behave as a normal array filter (keep the truthy items)
+    if (this.filter !== undefined && !this.filter(job)) {
+      trace(`[Report ${report.name}] Filtered job ${job._id}. Skipping.`);
+      return;
+    }
+
     info(`Reporting ${report.name} on item.`);
     const data: any = {};
-    // Trellis Result;
-    // Additional Reasons;
-    // FoodLogiQ Link;
     const pieces = jp.parse(path);
     let errorType: string | undefined;
     let date: string;
@@ -264,15 +299,12 @@ export class Report {
     });
   }
 
+
   async #getAttachment(lastDate?: string, startDate?: string) {
     const records = await this.#gatherReportRecords(lastDate, startDate);
-    if (records.length === 0 && this.noEmptyReports) return;
-    const csvData = csvjson.toCSV(records, {
-      delimiter: ',',
-      wrap: false,
-      headers: 'relative',
-    });
-    return Buffer.from(csvData, 'utf8').toString('base64');
+    if (records.length === 0 && !this.sendEmpty) return;
+    const sheet = xlsx.utils.sheet_to_csv(xlsx.utils.json_to_sheet(records));
+    return Buffer.from(sheet, 'utf8').toString('base64');
   }
 
   /**
@@ -331,8 +363,6 @@ export async function reportOnItem(
 ): globalThis.Promise<void> {
   if (!job) return;
 
-  // TODO: on first test, job.type was undefined. It should have a type to
-  // check here
   if (report.type && job.type && !report.type.includes(job.type)) {
     trace(
       `[Report ${report.name}] Job was not of type ${report.type}. Skipping.`
@@ -342,9 +372,6 @@ export async function reportOnItem(
 
   info(`Reporting ${report.name} on item.`);
   const data: any = {};
-  // Trellis Result;
-  // Additional Reasons;
-  // FoodLogiQ Link;
   const pieces = jp.parse(path);
   let errorType: string | undefined;
   let date: string;
@@ -381,6 +408,16 @@ export async function reportOnItem(
     },
     tree,
   });
+}
+
+// This generally assumes the thing passed to it is the abalonemail job
+// config.attachments[*].content buffer string created above by the
+// gatherAttachment method
+export function parseAttachment(buffString: string) {
+  const wb = xlsx.read(buffString, {
+    type: 'base64',
+  }) as unknown as { Sheets: { Sheet1: any } };
+  return xlsx.utils.sheet_to_json(wb.Sheets.Sheet1);
 }
 
 export type EmailConfigSetup = () => EmailConfig;

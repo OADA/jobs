@@ -25,6 +25,7 @@ import type { Job } from './Job.js';
 import type { Json } from './index.js';
 import type { Logger } from './Logger.js';
 import { Queue } from './Queue.js';
+import { type ReportConstructor } from './Report.js';
 
 export type Domain = string;
 export type Type = string;
@@ -120,34 +121,14 @@ export class Service {
   }
 
   /**
-   * @param name The name of the report
-   * @param domainOrOada The domain of the queue to watch, or an existing oada client.
-   * @param reportConfig The configuration used to derive CSV rows from the jobs list.
-   * @param frequency A cron-like string describing the frequency of the emailer.
-   * @param email A callback used to generate the email job
-   * @param type The subservice type to report on
-   * @param token Token to use to connect to OADA if necessary
+   * Add a report to the service. See ReportConstructor for parameters.
    */
-  public addReport(
-    name: string,
-    domainOrOada: string | OADAClient,
-    reportConfig: ReportConfig,
-    frequency: string,
-    email: EmailConfigSetup,
-    type?: string,
-    token?: string
-  ): Report {
-    const report = new Report(
-      name,
-      domainOrOada,
-      reportConfig,
-      this,
-      frequency,
-      email,
-      type,
-      token
-    );
-    this.#reports.set(name, report);
+  public addReport(rc: Omit<ReportConstructor, 'service'>) {
+    const report = new Report({
+      ...rc,
+      service: this,
+    });
+    this.#reports.set(rc.name, report);
     return report;
   }
 
@@ -225,8 +206,10 @@ export class Service {
   /**
    * Obtain an OADAClient by domain, creating if needed
    */
-  public getClient(domain: string): OADAClient {
-    let oada = this.#clients.get(domain);
+  public getClient(): OADAClient {
+    return this.#oada;
+    /*
+    oada = this.#clients.get(domain);
     if (!oada) {
       oada = new OADAClient({
         domain,
@@ -236,6 +219,7 @@ export class Service {
     }
 
     return oada;
+    */
   }
 
   /**
@@ -251,7 +235,7 @@ export class Service {
         await this.#queue?.stop();
       }
 
-      const queue: Queue = new Queue(this, defaultServiceQueueName, this.#oada);
+      const queue: Queue = new Queue(this, defaultServiceQueueName);//this.#oada);
       await queue.start(this.opts?.skipQueueOnStartup);
       this.#queue = queue;
     } catch (error_) {

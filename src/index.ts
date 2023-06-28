@@ -30,7 +30,7 @@ export {
 export { JobError } from './Runner.js';
 export { Job } from './Job.js';
 export { Logger } from './Logger.js';
-export { reportOnItem, type ReportConfig } from './Report.js';
+export { parseAttachment, reportOnItem, type ReportConfig } from './Report.js';
 export { postJob, postUpdate } from './utils.js';
 
 export type Json =

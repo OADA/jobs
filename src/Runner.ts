@@ -55,12 +55,7 @@ export class Runner {
    * @param job The associated job
    * @param oada The OADAClient to use when runing the job
    */
-  constructor(
-    service: Service,
-    jobKey: string,
-    job: Job,
-    oada: OADAClient,
-  ) {
+  constructor(service: Service, jobKey: string, job: Job, oada: OADAClient) {
     this.#service = service;
     this.#jobKey = jobKey;
     this.#job = job;

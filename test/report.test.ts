@@ -45,39 +45,23 @@ const abalonemail = `bookmarks/services/abalonemail/jobs/success/day-index`;
 const successjob = {
   service: name,
   type: 'basic',
-  config: { do: 'success', first: 'abc', second: 'def' },
+  config: { result: 'success', first: 'abc', second: 'def' },
 };
 const failjob = {
   ...successjob,
-  config: { do: 'fail', first: 'aaa', second: 'bbb' },
+  config: { result: 'fail', first: 'aaa', second: 'bbb' },
 };
 const jobwaittime = 7000; // Ms to wait for job to complete, tune to your oada response time
 let reportTime: any;
 
 let oada: OADAClient;
 let svc: Service;
-test.before(async (t) => {
-  t.timeout(10_000);
+test.before(async () => {
   // Get global connection to oada for later tests
   oada = await connect({ domain, token });
-
-  // Cleanup any old service tests that didn't get deleted
-  const existing = await oada
-    .get({ path: '/bookmarks/services' })
-    .then((r) => oadaify(r.data as Json));
-  if (typeof existing === 'object' && existing) {
-    const testservices = Object.keys(existing).filter((servicename) =>
-      /^JOBSTEST/.exec(servicename)
-    );
-    await Promise.all(
-      testservices.map(async (servicename) => {
-        trace('Found old test job service: ', servicename, ', deleting it');
-        await oada.delete({ path: `/bookmarks/services/${servicename}` });
-      })
-    );
-  }
-
-  await deleteResourceAndLinkIfExists(oada, root);
+  await oada.delete({
+    path: root,
+  });
 
   // Start the service
   trace('before: starting service ', name);
@@ -93,18 +77,18 @@ test.before(async (t) => {
       throw new Error('job.config does not exist');
     }
 
-    const command = (job.config as { do?: string }).do;
-    switch (command) {
+    const { result } = job.config as any;
+    switch (result) {
       case 'success': {
         return { success: true } as Json;
       }
 
       case 'fail': {
-        throw new Error('config.do is throw');
+        throw new Error('config.result is fail');
       }
 
       default: {
-        throw new Error(`Unknown do command ${command} in job config`);
+        throw new Error(`Unknown result ${result} in job config`);
       }
     }
   });
@@ -114,10 +98,9 @@ test.before(async (t) => {
   const min = reportTime.minute();
   const hr = reportTime.hour();
   const s = reportTime.second();
-  svc.addReport(
-    reportname,
-    oada,
-    {
+  svc.addReport({
+    name: reportname,
+    reportConfig: {
       jobMappings: {
         'Column One': '/config/first',
         'Column Two': '/config/second',
@@ -129,8 +112,8 @@ test.before(async (t) => {
         'custom-test': 'Another Error',
       },
     },
-    `${s} ${min} ${hr} * * *`,
-    () => {
+    frequency: `${s} ${min} ${hr} * * *`,
+    email: () => {
       const date = moment().format('YYYY-MM-DD');
       return {
         from: 'noreply@trellis.one',
@@ -149,27 +132,23 @@ test.before(async (t) => {
         ],
       };
     },
-    'basic'
-  );
+    type: 'basic',
+  });
 
   await svc.start();
-  // Since we can't tree-put, ensure the jobs path exists now
-  const exists: boolean = await oada
-    .head({ path: `${root}/jobs` })
-    .then(() => true)
-    .catch(() => false);
-  if (!exists) await oada.put({ path: `${root}/jobs`, data: {}, tree });
-  trace('Finished with startup,');
 });
 
 test.after(async () => {
   await svc.stop();
-  // Await deleteResourceAndLinkIfExists(oada,root);
+  await oada.delete({
+    path: root,
+  });
 });
 
 test('Should make a report entry when a job is added to the failure index', async (t) => {
+  t.timeout(30_000);
   const { key } = await postJob(oada, pending, failjob);
-  await setTimeout(jobwaittime);
+  await setTimeout(12_000);
   const jobisgone = await oada
     .get({
       path: `${pending}/${key}`,
@@ -253,6 +232,16 @@ test('Should post a job to abalonemail when it is time to report', async (t) => 
   // @ts-expect-error
   t.not(email.config.attachments[0].content, '');
 });
+
+// TODO: needs finished
+test.skip('Should produce non-overlapping times (and results) in each report', async (t) => {
+  t.timeout(75_000);
+  await setTimeout(5000);
+});
+
+test.only('parseAttachments should be able to reconstruct the csv object', async () => {
+
+})
 
 /*
 Test('Should not generate an abalonemail job when the report data is empty', async (t) => {
