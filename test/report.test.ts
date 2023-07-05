@@ -15,33 +15,26 @@
  * limitations under the License.
  */
 
-import test from 'ava';
-
+import { type Json, Service } from '../dist/index.js';
+import { type JsonObject, type OADAClient, connect, doJob } from '@oada/client';
 import { domain, token } from './config.js';
-
-import { setTimeout } from 'node:timers/promises';
-
+import type EmailJob from '@oada/types/trellis/service/abalonemail/email.js';
 import debug from 'debug';
 import moment from 'moment';
-
-import { type JsonObject, type OADAClient, connect } from '@oada/client';
-import type Job from '@oada/types/oada/service/job.js';
-import { oadaify } from '@oada/oadaify';
-
-import { deleteResourceAndLinkIfExists, postJob } from './utils.js';
-
-import { type Json, Service } from '../dist/index.js';
-import { tree } from '../dist/tree.js';
+import { postJob } from './utils.js';
+import { setTimeout } from 'node:timers/promises';
+import test from 'ava';
+import { parseAttachment } from '../dist/Report.js';
 
 const trace = debug('all.test.ts:trace');
 const error = debug('all.test.ts:error');
 
-const name = 'JOBSTEST'; // +(new Date()).getTime();
+const name = 'JOBSTEST';
 const root = `/bookmarks/services/${name}`;
 const pending = `/bookmarks/services/${name}/jobs/pending`;
 const reportname = 'test-report';
 const reportPath = `bookmarks/services/${name}/jobs/reports/${reportname}`;
-const abalonemail = `bookmarks/services/abalonemail/jobs/success/day-index`;
+const successJobs = `bookmarks/services/abalonemail/jobs/success/day-index`;
 const successjob = {
   service: name,
   type: 'basic',
@@ -145,6 +138,18 @@ test.after(async () => {
   });
 });
 
+test.afterEach(async () => {
+  const { data: jobs } = (await oada.get({
+    path: `/bookmarks/services/abalonemail/jobs/pending`,
+  })) as unknown as { data: Record<string, any> };
+  const keys = Object.keys(jobs).filter((key) => !key.startsWith('_'));
+  for await (const key of keys) {
+    await oada.delete({
+      path: `/bookmarks/services/abalonemail/jobs/pending/${key}`,
+    });
+  }
+});
+
 test('Should make a report entry when a job is added to the failure index', async (t) => {
   t.timeout(30_000);
   const { key } = await postJob(oada, pending, failjob);
@@ -202,15 +207,12 @@ test('Should make a report entry when a job is added to the success index', asyn
 test('Should post a job to abalonemail when it is time to report', async (t) => {
   t.timeout(75_000);
   const date = moment().format('YYYY-MM-DD');
-  // @ts-expect-error
-  const wait = reportTime - moment();
+  const wait = reportTime - Date.now();
   await setTimeout(wait > 0 ? wait + 5000 : 0);
 
-  const result = await oada
-    .get({
-      path: `${abalonemail}/${date}`,
-    })
-    .then((r) => r.data as unknown as JsonObject);
+  const { data: result } = (await oada.get({
+    path: `${successJobs}/${date}`,
+  })) as unknown as { data: JsonObject };
   t.truthy(result);
 
   let keys = Object.keys(result).filter((key) => !key.startsWith('_'));
@@ -218,19 +220,13 @@ test('Should post a job to abalonemail when it is time to report', async (t) => 
   keys = keys.sort();
   t.true(keys.length > 0);
 
-  const email = await oada
-    .get({
-      path: `${abalonemail}/${date}/${keys[keys.length - 1]}`,
-    })
-    .then((r) => r.data as unknown as Job);
-  t.is(email.config!.from, 'noreply@trellis.one');
-  t.is(email.config!.subject, `Test Email - ${date}`);
-  t.truthy(
-    // @ts-expect-error skip for now
-    email.config && email.config.attachments && email.config.attachments[0]
-  );
-  // @ts-expect-error
-  t.not(email.config.attachments[0].content, '');
+  const { data: email } = (await oada.get({
+    path: `${successJobs}/${date}/${keys[keys.length - 1]}`,
+  })) as unknown as { data: EmailJob };
+  t.is(email.config.from, 'noreply@trellis.one');
+  t.is(email.config.subject, `Test Email - ${date}`);
+  t.truthy(email.config.attachments?.[0]);
+  t.not(email.config.attachments?.[0]?.content, '');
 });
 
 // TODO: needs finished
@@ -239,36 +235,190 @@ test.skip('Should produce non-overlapping times (and results) in each report', a
   await setTimeout(5000);
 });
 
-test.only('parseAttachments should be able to reconstruct the csv object', async () => {
-
-})
-
-/*
-Test('Should not generate an abalonemail job when the report data is empty', async (t) => {
+test.only('parseAttachments should be able to reconstruct the csv object', async (t) => {
   t.timeout(75_000);
-  const date = moment().format('YYYY-MM-DD');
-  //@ts-ignore
-  let wait = (reportTime - moment());
-  await setTimeout(wait > 0 ? wait+5000 : 0);
+  const thisReportName = 'this-test-report';
 
-  const result = await oada.get({
-    path: `${abalonemail}/${date}`,
-  }).then(r=>r.data as unknown as JsonObject);
-  t.truthy(result)
-
-  let keys = Object.keys(result).filter(key => key.charAt(0) !== '_');
-
-  keys = keys.sort();
-  t.true(keys.length > 0)
-
-  const email = await oada.get({
-    path: `${abalonemail}/${date}/${keys[keys.length-1]}`,
-  }).then(r=>r.data as unknown as Job);
-  t.is(email.config!.from, "noreply@trellis.one");
-  t.is(email.config!.subject, `Test Email - ${date}`);
-  //@ts-ignore
-  t.truthy(email.config && email.config.attachments && email.config.attachments[0]);
-  //@ts-ignore
-  t.notDeepEqual(email.config.attachments[0].content, "");
+  const wait = 25;
+  const dt = new Date();
+  dt.setSeconds(dt.getSeconds() + wait);
+  svc.addReport({
+    name: thisReportName,
+    reportConfig: {
+      jobMappings: {
+        'Column One': '/config/first',
+        'Column Two': '/config/second',
+        'Status': 'errorMappings',
+      },
+      errorMappings: {
+        'unknown': 'Other Error',
+        'success': 'Success',
+        'custom-test': 'Another Error',
+      },
+    },
+    frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
+    email: () => {
+      const date = moment().format('YYYY-MM-DD');
+      return {
+        from: 'noreply@trellis.one',
+        to: {
+          name: 'Test Email',
+          email: 'sn@centricity.us',
+        },
+        subject: `Test Email - ${date}`,
+        text: `Attached is the Test Report for the test service jobs processed on ${date}`,
+        attachments: [
+          {
+            filename: `TestReport-${date}.csv`,
+            type: 'text/csv',
+            content: '',
+          },
+        ],
+      };
+    },
+    type: 'basic',
   });
-*/
+  await svc.start();
+
+  // Don't do any jobs. This should create no attachment content
+  console.log('Job Started');
+  const res = await doJob(oada, successjob);
+  console.log('Job Done');
+  await setTimeout(30_000);
+
+  const { data: result } = (await oada.get({
+    path: `/bookmarks/services/abalonemail/jobs/pending`,
+  })) as unknown as { data: JsonObject };
+  t.truthy(result);
+  const keys = Object.keys(result)
+    .filter((key) => !key.startsWith('_'))
+    .sort();
+  console.log('asserting abalonemail jobs list');
+  t.assert(keys.length > 0);
+  const key = keys[0];
+
+  const { data: content } = (await oada.get({
+    path: `/bookmarks/services/abalonemail/jobs/pending/${key}/config/attachments/0/content`,
+  })) as unknown as { data: any };
+
+  const tableData = parseAttachment(content) as any;
+  console.log(tableData);
+  t.assert(tableData[0]['Column One']);
+  t.assert(tableData[0]['Column Two']);
+  t.assert(tableData[0].Status);
+});
+
+test.skip('Should not generate an abalonemail job when the report data is empty', async (t) => {
+  t.timeout(75_000);
+  const thisReportName = 'this-test-report';
+
+  const wait = 3;
+  const dt = new Date();
+  dt.setSeconds(dt.getSeconds() + wait);
+  svc.addReport({
+    name: thisReportName,
+    reportConfig: {
+      jobMappings: {
+        'Column One': '/config/first',
+        'Column Two': '/config/second',
+        'Status': 'errorMappings',
+      },
+      errorMappings: {
+        'unknown': 'Other Error',
+        'success': 'Success',
+        'custom-test': 'Another Error',
+      },
+    },
+    frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
+    email: () => {
+      const date = moment().format('YYYY-MM-DD');
+      return {
+        from: 'noreply@trellis.one',
+        to: {
+          name: 'Test Email',
+          email: 'sn@centricity.us',
+        },
+        subject: `Test Email - ${date}`,
+        text: `Attached is the Test Report for the test service jobs processed on ${date}`,
+        attachments: [
+          {
+            filename: `TestReport-${date}.csv`,
+            type: 'text/csv',
+            content: '',
+          },
+        ],
+      };
+    },
+    type: 'basic',
+  });
+
+  // Don't do any jobs. This should create no attachment content
+  await setTimeout(wait * 2 * 1000);
+
+  const { data: result } = (await oada.get({
+    path: `/bookmarks/services/abalonemail/jobs/pending`,
+  })) as unknown as { data: JsonObject };
+  t.truthy(result);
+  const keys = Object.keys(result)
+    .filter((key) => !key.startsWith('_'))
+    .sort();
+  t.true(keys.length === 0);
+});
+
+test.skip('Should generate an abalonemail job when the report data is empty and sendEmpty is true', async (t) => {
+  t.timeout(75_000);
+  const thisReportName = 'this-test-report';
+
+  const wait = 3;
+  const dt = new Date();
+  dt.setSeconds(dt.getSeconds() + wait);
+  svc.addReport({
+    name: thisReportName,
+    sendEmpty: true,
+    reportConfig: {
+      jobMappings: {
+        'Column One': '/config/first',
+        'Column Two': '/config/second',
+        'Status': 'errorMappings',
+      },
+      errorMappings: {
+        'unknown': 'Other Error',
+        'success': 'Success',
+        'custom-test': 'Another Error',
+      },
+    },
+    frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
+    email: () => {
+      const date = moment().format('YYYY-MM-DD');
+      return {
+        from: 'noreply@trellis.one',
+        to: {
+          name: 'Test Email',
+          email: 'sn@centricity.us',
+        },
+        subject: `Test Email - ${date}`,
+        text: `Attached is the Test Report for the test service jobs processed on ${date}`,
+        attachments: [
+          {
+            filename: `TestReport-${date}.csv`,
+            type: 'text/csv',
+            content: '',
+          },
+        ],
+      };
+    },
+    type: 'basic',
+  });
+
+  // Don't do any jobs. This should create no attachment content
+  await setTimeout((wait + 3) * 1000);
+
+  const { data: result } = (await oada.get({
+    path: `/bookmarks/services/abalonemail/jobs/pending`,
+  })) as unknown as { data: JsonObject };
+  t.truthy(result);
+  const keys = Object.keys(result)
+    .filter((key) => !key.startsWith('_'))
+    .sort();
+  t.true(keys.length > 0);
+});

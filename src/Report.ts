@@ -37,6 +37,8 @@ const info = debug('oada-jobs:connection:info');
 // Const warn = debug('oada-jobs:connection:warn');
 const trace = debug('oada-jobs:connection:trace');
 
+const EMAIL_SVC = 'abalonemail';
+
 export interface ReportConstructor {
   name: string;
   service: Service;
@@ -114,23 +116,23 @@ export class Report {
     startDate?: string
   ) {
     const emailJob = {
-      service: 'abalonemail',
+      service: EMAIL_SVC,
       type: 'email',
       config: ecs ?? this.email(),
     };
 
-    if (emailJob?.config?.attachments && (emailJob.config.attachments.length ?? []) > 0) {
-      const attach = await this.#getAttachment(lastDate, startDate);
-      if (attach) {
-        emailJob.config.attachments[0]!.content = attach;
-      } else {
-        info(`[Report ${this.name}] sendEmail had no records to attach. Configuration to send empty emails: [${this.sendEmpty}]`);
-        if (!this.sendEmpty) return;
-      }
-    } else {
-      info(`[Report ${this.name}] sendEmail had no attachments.`);
+    console.log('making report');
+    const attach = await this.#getAttachment(lastDate, startDate);
+    if (!attach && !this.sendEmpty) {
+    console.log('report empty');
+      info(
+        `[Report ${this.name}] sendEmail had no records to attach. Configuration to send empty emails: [${this.sendEmpty}]`
+      );
       return;
     }
+    console.log('report made');
+
+    jp.set(emailJob, `/config/attachments/0/content`, attach);
 
     // Queue the job to send the email
     const {
@@ -143,13 +145,13 @@ export class Report {
     if (!location) return;
     const id = location.replace(/^\/resources\//, '');
     await this.oada.put({
-      path: `/bookmarks/services/abalonemail/jobs/pending`,
+      path: `/bookmarks/services/${EMAIL_SVC}/jobs/pending`,
       data: {
         [id]: { _id: `resources/${id}` },
       },
       tree,
     });
-    info(`[Report ${this.name}] sent email job to abalonemail.`);
+    info(`[Report ${this.name}] sent email job to ${EMAIL_SVC}.`);
   }
 
   public async stop() {
@@ -165,20 +167,6 @@ export class Report {
     const star: Tree = jp.get(tree, '/bookmarks/services/*') as Tree;
     jp.set(serviceTree, `/bookmarks/services/${this.service.name}`, star);
 
-    /*
-    this.listWatchFailures = new ListWatch<Job>({
-      conn: this.oada,
-      path: `/bookmarks/services/${this.service.name}/jobs/failure`,
-      name: `${this.name}-failwatch`,
-      itemsPath: `$.*.day-index.*.*`,
-      onAddItem: (job: any, id: any) => {
-        this.reportItem(this, job, id);
-      },
-      onNewList: ListWatch.AssumeHandled,
-      tree: serviceTree,
-      resume: true,
-    });
-    */
     this.listWatchFailures = new ListWatch({
       conn: this.oada,
       path: `/bookmarks/services/${this.service.name}/jobs/failure`,
@@ -192,24 +180,10 @@ export class Report {
       ChangeType.ItemAdded,
       async ({ item, pointer }) => {
         const it = await item;
+        console.log('Reporting on item for report', this.name);
         await this.reportItem(this, it as Job, pointer);
       }
     );
-
-    /*
-    this.listWatchSuccesses = new ListWatch<Job>({
-      conn: this.oada,
-      path: `/bookmarks/services/${this.service.name}/jobs/success`,
-      name: `${this.name}-successwatch`,
-      itemsPath: `$.day-index.*.*`,
-      onAddItem: (job: any, id: any) => {
-        this.reportItem(this, job, id);
-      },
-      onNewList: ListWatch.AssumeHandled,
-      tree: serviceTree,
-      resume: true,
-    });
-    */
 
     this.listWatchSuccesses = new ListWatch({
       conn: this.oada,
@@ -224,6 +198,7 @@ export class Report {
       ChangeType.ItemAdded,
       async ({ item, pointer }) => {
         const it = await item;
+        console.log('Reporting on item for report', this.name);
         await this.reportItem(this, it as Job, pointer);
       }
     );
@@ -299,10 +274,8 @@ export class Report {
     });
   }
 
-
   async #getAttachment(lastDate?: string, startDate?: string) {
     const records = await this.#gatherReportRecords(lastDate, startDate);
-    if (records.length === 0 && !this.sendEmpty) return;
     const sheet = xlsx.utils.sheet_to_csv(xlsx.utils.json_to_sheet(records));
     return Buffer.from(sheet, 'utf8').toString('base64');
   }
