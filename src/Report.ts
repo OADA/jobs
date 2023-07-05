@@ -121,16 +121,13 @@ export class Report {
       config: ecs ?? this.email(),
     };
 
-    console.log('making report');
     const attach = await this.#getAttachment(lastDate, startDate);
     if (!attach && !this.sendEmpty) {
-    console.log('report empty');
       info(
         `[Report ${this.name}] sendEmail had no records to attach. Configuration to send empty emails: [${this.sendEmpty}]`
       );
       return;
     }
-    console.log('report made');
 
     jp.set(emailJob, `/config/attachments/0/content`, attach);
 
@@ -180,7 +177,6 @@ export class Report {
       ChangeType.ItemAdded,
       async ({ item, pointer }) => {
         const it = await item;
-        console.log('Reporting on item for report', this.name);
         await this.reportItem(this, it as Job, pointer);
       }
     );
@@ -198,7 +194,6 @@ export class Report {
       ChangeType.ItemAdded,
       async ({ item, pointer }) => {
         const it = await item;
-        console.log('Reporting on item for report', this.name);
         await this.reportItem(this, it as Job, pointer);
       }
     );

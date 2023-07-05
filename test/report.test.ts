@@ -280,10 +280,7 @@ test.only('parseAttachments should be able to reconstruct the csv object', async
   });
   await svc.start();
 
-  // Don't do any jobs. This should create no attachment content
-  console.log('Job Started');
   const res = await doJob(oada, successjob);
-  console.log('Job Done');
   await setTimeout(30_000);
 
   const { data: result } = (await oada.get({
@@ -293,7 +290,6 @@ test.only('parseAttachments should be able to reconstruct the csv object', async
   const keys = Object.keys(result)
     .filter((key) => !key.startsWith('_'))
     .sort();
-  console.log('asserting abalonemail jobs list');
   t.assert(keys.length > 0);
   const key = keys[0];
 
@@ -302,7 +298,6 @@ test.only('parseAttachments should be able to reconstruct the csv object', async
   })) as unknown as { data: any };
 
   const tableData = parseAttachment(content) as any;
-  console.log(tableData);
   t.assert(tableData[0]['Column One']);
   t.assert(tableData[0]['Column Two']);
   t.assert(tableData[0].Status);
