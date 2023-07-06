@@ -19,7 +19,7 @@ import type { Config } from '@oada/client';
 import { OADAClient } from '@oada/client';
 import { assert as assertQueue } from '@oada/types/oada/service/queue.js';
 
-import { type EmailConfigSetup, Report, type ReportConfig } from './Report.js';
+import { Report } from './Report.js';
 import { debug, error, warn } from './utils.js';
 import type { Job } from './Job.js';
 import type { Json } from './index.js';
@@ -98,12 +98,19 @@ export class Service {
    */
   constructor(object: ConstructorArguments) {
     this.name = object.name;
-    if (object.oada instanceof OADAClient) {
+    if (
+      // @ts-expect-error instanceof OADAClient does not work
+      object.oada?.getDomain !== undefined &&
+      // @ts-expect-error instanceof OADAClient does not work
+      object.oada?.getToken !== undefined
+    ) {
       debug('Using oada connection passed to constructor');
+      // @ts-expect-error instanceof OADAClient does not work
       this.#oada = object.oada;
     } else {
       debug('Opening OADA connection from domain/token that were passed');
       try {
+        // @ts-expect-error instanceof OADAClient does not work
         this.#oada = new OADAClient(object.oada!);
       } catch {
         throw new Error(
