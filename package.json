@@ -79,7 +79,7 @@
     "p-timeout": "^6.1.0",
     "serialize-error": "^11.0.0",
     "tiny-json-http": "^7.4.2",
-    "tslib": "^2.5.0",
+    "tslib": "^2.5.3",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
