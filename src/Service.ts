@@ -60,6 +60,7 @@ export interface ServiceOptions {
 export interface ConstructorArguments {
   name: string;
   oada?: OADAClient | Config;
+  concurrency?: number;
   opts?: ServiceOptions;
 }
 
@@ -121,7 +122,7 @@ export class Service {
 
     this.domain = this.#oada.getDomain();
     this.token = this.#oada.getToken()[0]!;
-    this.concurrency = this.#oada.getConcurrency();
+    this.concurrency = object.concurrency ?? this.#oada.getConcurrency();
     if (object.opts) {
       this.opts = object.opts;
     }

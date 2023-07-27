@@ -26,6 +26,8 @@ import type OADAJobsChange from '@oada/types/oada/service/jobs-change.js';
 //import { assert as assertJobs } from '@oada/types/oada/service/jobs-change.js';
 
 import { Job } from './Job.js';
+import pq from 'p-queue';
+import type PQueue from 'p-queue';
 import { Runner } from './Runner.js';
 import type { Service } from './Service.js';
 
@@ -39,6 +41,7 @@ export class Queue {
   private readonly id: string;
   private readonly oada: OADAClient;
   private readonly service: Service;
+  private readonly queue: PQueue;
 
   /**
    * Creates queue watcher
@@ -49,6 +52,7 @@ export class Queue {
     this.id = id;
     this.service = service;
     this.oada = service.getClient();//.clone(token ?? '');
+    this.queue = new pq({ concurrency: this.service.concurrency });
     /*
     if (typeof domainOrOada === 'string') {
       this.oada = service.getClient().clone(token ?? '');
@@ -192,9 +196,8 @@ export class Queue {
    */
   async #doJobs(jobs: OADAJobs | OADAJobsChange): Promise<void> {
     // Queue up the Runners in parallel
-    await Bluebird.map(
-      Object.entries(jobs),
-      async ([jobKey, value]) => {
+    for (const [jobKey, value] of Object.entries(jobs)) {
+      this.queue.add(async () => {
         const { _id } = value as Link;
         if (!_id) return;
         // Fetch the job
@@ -209,8 +212,7 @@ export class Queue {
 
         trace(`[QueueId: ${this.id}] Starting runner for ${jobKey}`);
         await runner.run();
-      },
-      { concurrency: this.service.concurrency || 100 }
-    );
+      });
+    }
   }
 }

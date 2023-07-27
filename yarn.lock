@@ -533,6 +533,7 @@ __metadata:
     ksuid: ^3.0.0
     minimist: ^1.2.7
     moment: ^2.29.4
+    p-queue: ^7.3.4
     p-timeout: ^6.1.0
     prettier: ^2.8.3
     serialize-error: ^11.0.0
