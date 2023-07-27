@@ -210,7 +210,7 @@ export class Queue {
         trace(`[QueueId: ${this.id}] Starting runner for ${jobKey}`);
         await runner.run();
       },
-      { concurrency: 100 }
+      { concurrency: this.service.concurrency || 100 }
     );
   }
 }
