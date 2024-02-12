@@ -26,7 +26,6 @@ import moment from 'moment';
 
 import { type OADAClient, connect } from '@oada/client';
 import type OADAJob from '@oada/types/oada/service/job.js';
-import type OADAJobChange from '@oada/types/oada/service/jobs-change.js';
 import { oadaify } from '@oada/oadaify';
 
 import { deleteResourceAndLinkIfExists, postJob } from './utils.js';
@@ -147,7 +146,7 @@ test('Should move successful job to success queue, have status success, and stor
     t.is((result as OADAJob)?.status, 'success');
     t.deepEqual((result as OADAJob)?.result, { success: true }); // This is what the basic service handler returns
   } catch (error_: any) {
-    if (error_.status === 404) return false; // If it's not there, just return false
+    if (error_.status === 404) return ; // If it's not there, just return false
     throw error_ as Error; // Any other error, throw it back up
   }
 });
@@ -164,7 +163,7 @@ test('Should move failed job to failure queue, have status failure', async (t) =
     t.not(result, false); // It should be in the failure queue
     t.is((result as OADAJob)?.status, 'failure');
   } catch (error_: any) {
-    if (error_.status === 404) return false; // If it's not there, just return false
+    if (error_.status === 404) return; // If it's not there, just return false
     throw error_ as Error; // Any other error, throw it back up
   }
 });
@@ -181,7 +180,7 @@ test('Should fail a posted job that does not look like a job (missing config)', 
     t.not(result, false); // It should be in the failure queue
     t.is((result as OADAJob)?.status, 'failure');
   } catch (error_: any) {
-    if (error_.status === 404) return false; // If it's not there, just return false
+    if (error_.status === 404) return; // If it's not there, just return false
     throw error_ as Error; // Any other error, throw it back up
   }
 });
@@ -203,7 +202,7 @@ test('Should allow job created with a tree put (can lead to empty job content fo
     t.not(result, false); // It should be in the failure queue
     t.is((result as OADAJob)?.status, 'success');
   } catch (error_: any) {
-    if (error_.status === 404) return false; // If it's not there, just return false
+    if (error_.status === 404) return; // If it's not there, just return false
     throw error_ as Error; // Any other error, throw it back up
   }
 });

@@ -82,7 +82,9 @@ export class Runner {
         }
       }
 
-      trace(`[Runner ${this.#job.oadaId}] No completion time found. Using now.`);
+      trace(
+        `[Runner ${this.#job.oadaId}] No completion time found. Using now.`,
+      );
       return this.finish(this.#job.status, {}, moment());
     }
 
@@ -109,7 +111,7 @@ export class Runner {
         {
           milliseconds: worker.timeout,
           message: `Job exceeded the allowed ${worker.timeout} ms running limit`,
-        }
+        },
       );
 
       info(`[job ${this.#job.oadaId}] Successful`);
@@ -134,21 +136,19 @@ export class Runner {
       await this.#oada.post({
         path: `/${this.#job.oadaId}/updates`,
         // Since we aren't using tree, we HAVE to set the content type or permissions fail
-        contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
+        contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
         data: {
           status,
           time: moment().toISOString(),
           meta,
         },
       });
-    } catch (error_: any) {
+    } catch (error_: unknown) {
       error(
-        `FAILED TO POST UPDATE TO OADA at /${
-          this.#job.oadaId
-        }/updates.  status = `,
-        error_.status
+        error_,
+        `FAILED TO POST UPDATE TO OADA at /${this.#job.oadaId}/updates`,
       );
-      throw error_ as Error;
+      throw error_;
     }
   }
 
@@ -163,7 +163,7 @@ export class Runner {
     status: 'success' | 'failure',
     result: T,
     time: string | Moment,
-    failType?: string
+    failType?: string,
   ): Promise<void> {
     // Update job status and result
     let data;
@@ -176,7 +176,8 @@ export class Runner {
     }
 
     trace(
-      `[job ${this.#job.oadaId} ]: putting to job resource the final {status,result} = ${data}`);
+      `[job ${this.#job.oadaId} ]: putting to job resource the final {status,result} = ${data}`,
+    );
     await this.#oada.put({
       path: `/${this.#job.oadaId}`,
       data,
@@ -194,19 +195,15 @@ export class Runner {
     let finalpath: string | undefined;
     if (status === 'failure') {
       finalpath = failType
-        ? `/bookmarks/services/${
-            this.#service.name
-          }/jobs/${status}/${failType}/day-index/${date}`
-        : `/bookmarks/services/${
-            this.#service.name
-          }/jobs/${status}/unknown/day-index/${date}`;
+        ? `/bookmarks/services/${this.#service.name}/jobs/${status}/${failType}/day-index/${date}`
+        : `/bookmarks/services/${this.#service.name}/jobs/${status}/unknown/day-index/${date}`;
     } else if (status === 'success') {
-      finalpath = `/bookmarks/services/${
-        this.#service.name
-      }/jobs/${status}/day-index/${date}`;
+      finalpath = `/bookmarks/services/${this.#service.name}/jobs/${status}/day-index/${date}`;
     }
 
-    info(`[job ${this.#job.oadaId} ]: linking job to final resting place at ${finalpath}`);
+    info(
+      `[job ${this.#job.oadaId} ]: linking job to final resting place at ${finalpath}`,
+    );
     await this.#oada.put({
       path: finalpath!,
       data: {
@@ -221,9 +218,7 @@ export class Runner {
     // Remove from job queue
     trace(`[job ${this.#job.oadaId} ]: removing from jobs queue`);
     await this.#oada.delete({
-      path: `/bookmarks/services/${this.#service.name}/jobs/pending/${
-        this.#jobKey
-      }`,
+      path: `/bookmarks/services/${this.#service.name}/jobs/pending/${this.#jobKey}`,
     });
 
     // Notify the status reporter if there is one
@@ -241,14 +236,14 @@ export class Runner {
           switch (r.type) {
             case 'slack': {
               trace(
-                'Handling slack finishReporter, getting final job object from OADA'
+                'Handling slack finishReporter, getting final job object from OADA',
               );
               const { job: finaljob } = await Job.fromOada(
                 this.#oada,
-                this.#job.oadaId
+                this.#job.oadaId,
               );
               trace(
-                'Have final job object from OADA, sending to slack finishReporter'
+                'Have final job object from OADA, sending to slack finishReporter',
               );
               await slackOnFinish({
                 config: r,

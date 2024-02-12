@@ -1,5 +1,22 @@
-import tiny from 'tiny-json-http'; // For finishReporters
+/**
+ * @license
+ * Copyright 2023 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { error, info } from '../../utils.js';
+import tiny from 'tiny-json-http'; // For finishReporters
 
 import type { FinishReporter, Job, Service } from '../.././index.js';
 
@@ -14,7 +31,9 @@ interface FinishParameters {
 
 export async function onFinish(p: FinishParameters): Promise<void> {
   let { domain } = p.service;
-  if (!domain.startsWith('http')) domain = `https://${domain}`;
+  if (!domain.startsWith('http')) {
+    domain = `https://${domain}`;
+  }
 
   const message = {
     blocks: [
@@ -22,7 +41,7 @@ export async function onFinish(p: FinishParameters): Promise<void> {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `Service *${p.job.service}* on Domain *${domain}* failed jobid *${p.jobId}*`,
+          text: `Service *${p.job.service}* on Domain *${domain}* failed jobId *${p.jobId}*`,
         },
       },
       {
@@ -45,37 +64,35 @@ export async function onFinish(p: FinishParameters): Promise<void> {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `\`\`\`${JSON.stringify(p.job, null, '  ')}\`\`\``,
+              text: `\`\`\`${JSON.stringify(p.job, undefined, '  ')}\`\`\``,
             },
           },
         ],
       },
     ],
-  };
+  } as const;
 
   if (!p.config.posturl) {
     error(
-      'finishReporters#slack: Slack requires a posturl and you did not pass one'
+      'finishReporters#slack: Slack requires a posturl and you did not pass one',
     );
     return;
   }
 
-  await tiny
-    .post({
+  try {
+    await tiny.post({
       url: p.config.posturl,
       data: message,
       headers: { 'content-type': 'application/json' },
-    })
-    .then(() => {
-      info(
-        'Successfully posted message to slack about job with status ',
-        p.status
-      );
-    })
-    .catch((error_: any) => {
-      error(
-        'finishReporters#slack: ERROR: failed to post message to slack!  Error was: ',
-        error_
-      );
     });
+    info(
+      'Successfully posted message to slack about job with status %s',
+      p.status,
+    );
+  } catch (error_: unknown) {
+    error(
+      error_,
+      'finishReporters#slack: ERROR: failed to post message to slack!',
+    );
+  }
 }

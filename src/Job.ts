@@ -16,6 +16,7 @@
  */
 
 import {
+  type JobSchema,
   assert as assertOADAJob,
   is as isOADAJob,
 } from '@oada/types/oada/service/job.js';
@@ -48,7 +49,7 @@ export class Job {
    */
   public static async fromOada(
     oada: OADAClient,
-    oadaId: string
+    oadaId: string,
   ): Promise<FromOada> {
     let r = await oada.get({
       path: `/${oadaId}`,
@@ -70,16 +71,14 @@ export class Job {
     const job = r.data;
     const isJob = isOADAJob(job);
     if (!isJob) {
-      error(`Job at ${oadaId} FAILED OADAJob type assertion: `, job);
+      error({ job }, `Job at ${oadaId} FAILED OADAJob type assertion`);
     }
 
-    // @ts-expect-error
     // Because its an oada resource, job will be an object. The job
     // constructor shouldn't explode as is.
-    return { job: new Job(oadaId, job), isJob };
+    return { job: new Job(oadaId, job as unknown as JobSchema), isJob };
   }
 
-  public readonly oadaId: string;
   public readonly service: string;
   public readonly type: string;
   public readonly config: Json;
@@ -91,8 +90,10 @@ export class Job {
    * @param oadaId Job ID
    * @param job OADA Job object
    */
-  constructor(oadaId: string, job: OADAJob) {
-    this.oadaId = oadaId;
+  constructor(
+    public readonly oadaId: string,
+    job: OADAJob,
+  ) {
     this.service = job.service;
     // TODO: Ask @bcherny/json-schema-to-typescript to use Json type
     this.config = job.config as Json;

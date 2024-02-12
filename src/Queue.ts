@@ -15,46 +15,45 @@
  * limitations under the License.
  */
 
-import Bluebird from 'bluebird';
 import moment from 'moment';
 
 import type { Link } from '@oada/types/oada.js';
 import type { OADAClient } from '@oada/client';
 import type OADAJobs from '@oada/types/oada/service/jobs.js';
 import type OADAJobsChange from '@oada/types/oada/service/jobs-change.js';
-//TODO: Fix this type and get it back in here
-//import { assert as assertJobs } from '@oada/types/oada/service/jobs-change.js';
+// TODO: Fix this type and get it back in here
+// import { assert as assertJobs } from '@oada/types/oada/service/jobs-change.js';
 
 import { Job } from './Job.js';
-import pq from 'p-queue';
-import type PQueue from 'p-queue';
+import PQueue from 'p-queue';
 import { Runner } from './Runner.js';
 import type { Service } from './Service.js';
 
-import { debug, error, info, stripResource, trace } from './utils.js';
+import { error, info, stripResource, trace } from './utils.js';
 import { tree } from './tree.js';
 
 /**
  * Manages watching of a particular job queue
  */
 export class Queue {
-  private readonly id: string;
-  private readonly oada: OADAClient;
-  private readonly service: Service;
-  private readonly queue: PQueue;
+  #watchRequestId: string | string[] = '';
+  readonly #oada: OADAClient;
+  readonly #queue: PQueue;
 
   /**
    * Creates queue watcher
-   * @param service The `Service` which the watch is operating under
+   * @param _service The `Service` which the watch is operating under
    * @param token? The token for the queue to watch, or undefined if an OADA client was passed
    */
-  constructor(service: Service, id: string){//, token?: string) {
-    this.id = id;
-    this.service = service;
-    this.oada = service.getClient();//.clone(token ?? '');
-    this.queue = new pq({ concurrency: this.service.concurrency });
+  constructor(
+    private readonly _service: Service,
+    private readonly _id: string,
+  ) {
+    // , token?: string) {
+    this.#oada = _service.getClient(); // .clone(token ?? '');
+    this.#queue = new PQueue({ concurrency: this._service.concurrency });
     /*
-    if (typeof domainOrOada === 'string') {
+    If (typeof domainOrOada === 'string') {
       this.oada = service.getClient().clone(token ?? '');
     } else {
       debug(
@@ -68,40 +67,39 @@ export class Queue {
   }
 
   /**
-   * Opens the WATCH and begins procesing jobs
+   * Opens the WATCH and begins processing jobs
    */
-  private watchRequestId: string | string[] = '';
   public async start(skipQueue = false): Promise<void> {
-    const root = `/bookmarks/services/${this.service.name}`;
+    const root = `/bookmarks/services/${this._service.name}`;
     const jobspath = `${root}/jobs/pending`;
     const successpath = `${root}/jobs/success`;
     const failurepath = `${root}/jobs/failure`;
 
     try {
-      await this.oada.ensure({
+      await this.#oada.ensure({
         path: jobspath,
         data: {},
         tree,
       });
 
-      await this.oada.ensure({
+      await this.#oada.ensure({
         path: failurepath,
         data: {},
         tree,
       });
 
-      await this.oada.ensure({
+      await this.#oada.ensure({
         path: successpath,
         data: {},
         tree,
       });
 
-      info(`[QueueId ${this.id}] Getting initial set of jobs`);
-      const r = await this.oada.get({ path: jobspath });
+      info(`[QueueId ${this._id}] Getting initial set of jobs`);
+      const r = await this.#oada.get({ path: jobspath });
 
       if (r.status !== 200) {
         throw new Error(
-          `[QueueId ${this.id}] Could not retrieve job queue list`
+          `[QueueId ${this._id}] Could not retrieve job queue list`,
         );
       }
 
@@ -115,35 +113,35 @@ export class Queue {
       ) {
         trace(
           '[QueueId ',
-          this.id,
+          this._id,
           '] Initial jobs list at rev',
           r.data._rev,
-          ', starting watch from that point'
+          ', starting watch from that point',
         );
         watchopts.rev = r.data._rev;
       }
 
       // Watch will be started from rev that we just processed
-      const { changes, requestId } = await this.oada.watch(watchopts);
-      this.watchRequestId = requestId;
+      const { changes, requestId } = await this.#oada.watch(watchopts);
+      this.#watchRequestId = requestId;
       // Wrap for..await in async function that we do not "await";
       (async () => {
         for await (const change of changes) {
-          trace('[QueueId %s] received change: ', this.id, change);
+          trace('[QueueId %s] received change: ', this._id, change);
           if (change.type !== 'merge') continue;
 
           // Catch error in callback to avoid nodejs crash on error
           try {
             const jobs = stripResource(change.body);
-            //assertJobs(jobs);
+            // AssertJobs(jobs);
             trace(
               '[QueueId %s] jobs found in change:',
-              this.id,
-              Object.keys(jobs)
+              this._id,
+              Object.keys(jobs),
             );
-            this.#doJobs(jobs as OADAJobsChange);
-          } catch (error_) {
-            trace('The change was not a `Jobs`, %O', error_);
+            await this.#doJobs(jobs as OADAJobsChange);
+          } catch (error_: unknown) {
+            trace(error_, 'The change was not a `Jobs`');
             // Shouldn't it fail the job?
           }
         }
@@ -151,24 +149,24 @@ export class Queue {
         error('***ERROR***: the for...await looking for changes has exited');
       })();
 
-      info(`[QueueId ${this.id}] Started WATCH.`);
+      info(`[QueueId ${this._id}] Started WATCH.`);
 
       if (skipQueue) {
         info('Skipping existing jobs in the queue prior to startup.');
       } else {
         // Clean up the resource and grab all existing jobs to run them before starting watch
-        trace(`[QueueId ${this.id}] Adding existing jobs`);
+        trace(`[QueueId ${this._id}] Adding existing jobs`);
         const jobs = stripResource(r.data as Record<string, unknown>);
-        //assertJobs(jobs);
-        this.#doJobs(jobs as OADAJobs);
+        // AssertJobs(jobs);
+        await this.#doJobs(jobs as OADAJobs);
         trace(
           Object.keys(jobs).length,
-          ' existing jobs added and doJobs is complete, starting watch.'
+          ' existing jobs added and doJobs is complete, starting watch.',
         );
       }
     } catch (error_) {
-      error(`[QueueId: ${this.id}] Failed to start WATCH, %O`, error_);
-      throw new Error(`Failed to start watch ${this.id}`);
+      error(`[QueueId: ${this._id}] Failed to start WATCH, %O`, error_);
+      throw new Error(`Failed to start watch ${this._id}`);
     }
   }
 
@@ -176,19 +174,22 @@ export class Queue {
    * Closes the WATCH
    */
   public async stop(): Promise<void> {
-    // I'm not sure in what scenario requestid would be an array of strings, but that's its type.
-    const array = Array.isArray(this.watchRequestId)
-      ? this.watchRequestId
-      : [this.watchRequestId];
-    info(`[QueueId: ${this.id}] Stopping WATCH`);
+    // I'm not sure in what scenario requestId would be an array of strings, but that's its type.
+    const array = Array.isArray(this.#watchRequestId)
+      ? this.#watchRequestId
+      : [this.#watchRequestId];
+    info(`[QueueId: ${this._id}] Stopping WATCH`);
     // Stop all our watches:
     await Promise.all(
-      array.map((requestid) => {
-        if (requestid === '') return;
-        return this.oada.unwatch(requestid);
-      })
+      array.map(async (requestId) => {
+        if (requestId === '') {
+          return;
+        }
+
+        return this.#oada.unwatch(requestId);
+      }),
     );
-    this.watchRequestId = '';
+    this.#watchRequestId = '';
   }
 
   /**
@@ -197,20 +198,20 @@ export class Queue {
   async #doJobs(jobs: OADAJobs | OADAJobsChange): Promise<void> {
     // Queue up the Runners in parallel
     for (const [jobKey, value] of Object.entries(jobs)) {
-      this.queue.add(async () => {
+      void this.#queue.add(async () => {
         const { _id } = value as Link;
         if (!_id) return;
         // Fetch the job
-        const { job, isJob } = await Job.fromOada(this.oada, _id);
+        const { job, isJob } = await Job.fromOada(this.#oada, _id);
 
         // Instantiate a runner to manage the job
-        const runner = new Runner(this.service, jobKey, job, this.oada);
+        const runner = new Runner(this._service, jobKey, job, this.#oada);
 
         if (!isJob) {
-          runner.finish('failure', {}, moment());
+          await runner.finish('failure', {}, moment());
         }
 
-        trace(`[QueueId: ${this.id}] Starting runner for ${jobKey}`);
+        trace(`[QueueId: ${this._id}] Starting runner for ${jobKey}`);
         await runner.run();
       });
     }

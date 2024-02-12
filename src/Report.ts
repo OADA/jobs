@@ -17,15 +17,15 @@
 
 import { CronJob } from 'cron';
 import clone from 'clone-deep';
-import xlsx from 'xlsx';
 import debug from 'debug';
 import jp from 'json-pointer';
 import ksuid from 'ksuid';
 import moment from 'moment';
+import xlsx from 'xlsx';
 
 // Import type { Job } from '@oada/jobs';
-import type { JsonObject, OADAClient } from '@oada/client';
 import { AssumeState, ChangeType, ListWatch } from '@oada/list-lib';
+import type { JsonObject, OADAClient } from '@oada/client';
 import type EmailConfig from '@oada/types/trellis/service/abalonemail/config/email.js';
 import type Job from '@oada/types/oada/service/job.js';
 import type Tree from '@oada/types/oada/tree/v1.js';
@@ -57,7 +57,8 @@ export class Report {
   frequency: string;
   service: Service;
   oada: OADAClient;
-  mailer: CronJob;
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  mailer: CronJob<null, unknown>;
   path: string;
   lastCron: string;
   sendEmpty?: boolean;
@@ -92,28 +93,29 @@ export class Report {
     this.mailer = new CronJob(
       this.frequency,
       this.sendEmail,
+      // eslint-disable-next-line unicorn/no-null
       null,
       true,
       'America/New_York',
-      this
+      this,
     );
     const interval: number =
       (this.mailer.nextDates(2) as any)[1].ts -
       (this.mailer.nextDates(1) as any)[0].ts;
     this.lastCron = moment(
-      (this.mailer.nextDates(1) as any)[0] - interval
+      (this.mailer.nextDates(1) as any)[0] - interval,
     ).format();
     info(
       `Report ${this.name} created. Next run at ${
         (this.mailer.nextDates(1) as any)[0]
-      }`
+      }`,
     );
   }
 
   public async sendEmail(
     ecs?: EmailConfig,
     lastDate?: string,
-    startDate?: string
+    startDate?: string,
   ) {
     const emailJob = {
       service: EMAIL_SVC,
@@ -124,7 +126,7 @@ export class Report {
     const attach = await this.#getAttachment(lastDate, startDate);
     if (!attach && !this.sendEmpty) {
       info(
-        `[Report ${this.name}] sendEmail had no records to attach. Configuration to send empty emails: [${this.sendEmpty}]`
+        `[Report ${this.name}] sendEmail had no records to attach. Configuration to send empty emails: [${this.sendEmpty}]`,
       );
       return;
     }
@@ -178,7 +180,7 @@ export class Report {
       async ({ item, pointer }) => {
         const it = await item;
         await this.reportItem(this, it as Job, pointer);
-      }
+      },
     );
 
     this.listWatchSuccesses = new ListWatch({
@@ -195,11 +197,11 @@ export class Report {
       async ({ item, pointer }) => {
         const it = await item;
         await this.reportItem(this, it as Job, pointer);
-      }
+      },
     );
 
     info(
-      `Report ${this.name} started with a frequency of [${this.frequency}].`
+      `Report ${this.name} started with a frequency of [${this.frequency}].`,
     );
   }
 
@@ -212,13 +214,13 @@ export class Report {
   public async reportItem(
     report: Report,
     job: Job,
-    path: string
+    path: string,
   ): globalThis.Promise<void> {
     if (!job) return;
 
     if (report.type && job.type && !report.type.includes(job.type)) {
       trace(
-        `[Report ${report.name}] Job was not of type ${report.type}. Skipping.`
+        `[Report ${report.name}] Job was not of type ${report.type}. Skipping.`,
       );
       return;
     }
@@ -234,18 +236,18 @@ export class Report {
     const pieces = jp.parse(path);
     let errorType: string | undefined;
     let date: string;
-    let jobid: string;
+    let jobId: string;
     if (pieces.length === 4) {
       errorType = pieces[0]!;
       date = pieces[2]!;
-      jobid = pieces[3]!;
+      jobId = pieces[3]!;
     } else {
       date = pieces[1]!;
-      jobid = pieces[2]!;
+      jobId = pieces[2]!;
     }
 
     for (const [colName, pointer] of Object.entries(
-      report.reportConfig.jobMappings
+      report.reportConfig.jobMappings,
     )) {
       if (pointer === 'errorMappings') {
         data[colName] = errorType
@@ -255,7 +257,7 @@ export class Report {
     }
 
     for (const [colName, pointer] of Object.entries(
-      report.reportConfig.jobMappings
+      report.reportConfig.jobMappings,
     ).filter(([_, pointer]) => pointer !== 'errorMappings')) {
       data[colName] = jp.has(job, pointer) ? jp.get(job, pointer) : '';
     }
@@ -263,7 +265,7 @@ export class Report {
     await report.oada.put({
       path: `${report.path}/day-index/${date}`,
       data: {
-        [jobid]: data,
+        [jobId]: data,
       },
       tree,
     });
@@ -319,7 +321,7 @@ export class Report {
       currentDate.add(1, 'day');
     }
 
-    this.lastCron = this.mailer.lastDate().toString();
+    this.lastCron = `${this.mailer.lastDate()}`;
     return records;
   }
 }
@@ -327,13 +329,13 @@ export class Report {
 export async function reportOnItem(
   report: Report,
   job: Job,
-  path: string
+  path: string,
 ): globalThis.Promise<void> {
   if (!job) return;
 
   if (report.type && job.type && !report.type.includes(job.type)) {
     trace(
-      `[Report ${report.name}] Job was not of type ${report.type}. Skipping.`
+      `[Report ${report.name}] Job was not of type ${report.type}. Skipping.`,
     );
     return;
   }
@@ -354,7 +356,7 @@ export async function reportOnItem(
   }
 
   for (const [colName, pointer] of Object.entries(
-    report.reportConfig.jobMappings
+    report.reportConfig.jobMappings,
   )) {
     if (pointer === 'errorMappings') {
       data[colName] = errorType
@@ -364,7 +366,7 @@ export async function reportOnItem(
   }
 
   for (const [colName, pointer] of Object.entries(
-    report.reportConfig.jobMappings
+    report.reportConfig.jobMappings,
   ).filter(([_, pointer]) => pointer !== 'errorMappings')) {
     data[colName] = jp.get(job, pointer) ?? '';
   }

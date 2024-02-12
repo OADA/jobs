@@ -44,8 +44,8 @@ export type JsonCompatible<T> = {
   [P in keyof T]: T[P] extends Json
     ? T[P]
     : T[P] extends (() => unknown) | undefined
-    ? never
-    : Pick<T, P> extends Required<Pick<T, P>>
-    ? never
-    : JsonCompatible<T[P]>;
+      ? never
+      : Pick<T, P> extends Required<Pick<T, P>>
+        ? never
+        : JsonCompatible<T[P]>;
 };

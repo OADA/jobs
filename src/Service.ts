@@ -19,13 +19,12 @@ import type { Config } from '@oada/client';
 import { OADAClient } from '@oada/client';
 import { assert as assertQueue } from '@oada/types/oada/service/queue.js';
 
-import { Report } from './Report.js';
+import { Report, type ReportConstructor } from './Report.js';
 import { debug, error, warn } from './utils.js';
 import type { Job } from './Job.js';
 import type { Json } from './index.js';
 import type { Logger } from './Logger.js';
 import { Queue } from './Queue.js';
-import { type ReportConstructor } from './Report.js';
 
 export type Domain = string;
 export type Type = string;
@@ -39,7 +38,7 @@ export interface WorkerContext {
 }
 export type WorkerFunction = (
   job: Job,
-  context: WorkerContext
+  context: WorkerContext,
 ) => Promise<Json>;
 
 export interface Worker {
@@ -84,7 +83,7 @@ export class Service {
   public opts: ServiceOptions | undefined;
 
   readonly #oada: OADAClient;
-  readonly #clients = new Map<Domain, OADAClient>();
+  // Readonly #clients = new Map<Domain, OADAClient>();
   readonly #workers = new Map<Type, Worker>();
   readonly #reports = new Map<string, Report>();
   #queue?: Queue;
@@ -115,7 +114,7 @@ export class Service {
         this.#oada = new OADAClient(object.oada!);
       } catch {
         throw new Error(
-          `Service constructor requires either an existing OADA client or the connection config to create a new new connection. Attempt to create a new connection with the 'oada' argument failed.`
+          `Service constructor requires either an existing OADA client or the connection config to create a new new connection. Attempt to create a new connection with the 'oada' argument failed.`,
         );
       }
     }
@@ -169,7 +168,7 @@ export class Service {
       : [this.#watchRequestId];
     // Stop all our watches:
     await Promise.all(
-      array.map(async (requestId) => this.#oada.unwatch(requestId))
+      array.map(async (requestId) => this.#oada.unwatch(`${requestId}`)),
     );
     // And stop all the queue's and their watches:
     await this.#stopQueue();
@@ -217,7 +216,7 @@ export class Service {
   public getClient(): OADAClient {
     return this.#oada;
     /*
-    oada = this.#clients.get(domain);
+    Oada = this.#clients.get(domain);
     if (!oada) {
       oada = new OADAClient({
         domain,
@@ -243,7 +242,7 @@ export class Service {
         await this.#queue?.stop();
       }
 
-      const queue: Queue = new Queue(this, defaultServiceQueueName);//this.#oada);
+      const queue: Queue = new Queue(this, defaultServiceQueueName); // This.#oada);
       await queue.start(this.opts?.skipQueueOnStartup);
       this.#queue = queue;
     } catch (error_) {

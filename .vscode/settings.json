@@ -20,7 +20,7 @@
     "tags.*": true,
     "**/.pnp.*": true
   },
-  "prettier.prettierPath": ".yarn/sdks/prettier/index.js",
+  "prettier.prettierPath": ".yarn/sdks/prettier/index.cjs",
   "typescript.tsdk": ".yarn/sdks/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "eslint.nodePath": ".yarn/sdks",
@@ -54,16 +54,19 @@
   "licenser.author": "Open Ag Data Alliance",
   "licenser.license": "AL2",
   "cSpell.words": [
+    "bcherny",
     "Buildx",
     "codeql",
     "foodlogiq",
     "ksuid",
     "lcov",
+    "mrkdwn",
     "oadaify",
     "pino",
     "Snyk",
     "sonarjs",
-    "trellisfw"
+    "trellisfw",
+    "xksuid"
   ],
   "eslint.format.enable": true,
   "eslint.lintTask.enable": true,

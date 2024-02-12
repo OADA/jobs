@@ -280,7 +280,7 @@ test.only('parseAttachments should be able to reconstruct the csv object', async
   });
   await svc.start();
 
-  const res = await doJob(oada, successjob);
+  await doJob(oada, successjob);
   await setTimeout(30_000);
 
   const { data: result } = (await oada.get({

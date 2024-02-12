@@ -1,10 +1,7 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "allowJs": true,
     "rootDir": ".",
-    "noUnusedLocals": false,
-    "noImplicitReturns": false,
     "outDir": "../.test"
   },
   "include": ["."],

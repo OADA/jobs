@@ -43,7 +43,7 @@ export async function postJob(
   path: string,
   job: Json
 ): Promise<{ _id: string; key: string }> {
-  // 1:Create a resource for the job and keep resourceid to return
+  // 1:Create a resource for the job and keep resource id to return
   const _id = await oada
     .post({
       path: '/resources',

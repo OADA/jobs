@@ -41,7 +41,7 @@ export function stripResource<T extends Record<string, unknown>>({
 
 export async function deleteResourceAndLinkIfExists(
   oada: OADAClient,
-  path: string
+  path: string,
 ): Promise<void> {
   try {
     await oada.head({ path });
@@ -61,14 +61,14 @@ export function keyFromLocation(r: ConnectionResponse) {
 export async function postJob(
   oada: OADAClient,
   path: string,
-  job: Json
+  job: Json,
 ): Promise<{ _id: string; key: string }> {
-  // 1:Create a resource for the job and keep resourceid to return
+  // 1:Create a resource for the job and keep resourceId to return
   const _id = await oada
     .post({
       path: '/resources',
       data: job as unknown as Json,
-      contentType: tree.bookmarks!.services!['*']!.jobs!.pending!._type,
+      contentType: tree.bookmarks.services['*'].jobs.pending._type,
     })
     .then((r) => r.headers['content-location']?.replace(/^\//, '') ?? ''); // Get rid of leading slash for link
 
@@ -77,7 +77,7 @@ export async function postJob(
   await oada.put({
     path: `${path}/${key}`,
     data: { _id },
-    contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
+    contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
   });
 
   return { _id, key };
@@ -92,24 +92,21 @@ export async function postUpdate(
   oada: OADAClient,
   oadaId: string,
   meta: Json,
-  status: string
+  status: string,
 ): Promise<void> {
   try {
     await oada.post({
       path: `/${oadaId}/updates`,
       // Since we aren't using tree, we HAVE to set the content type or permissions fail
-      contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
+      contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
       data: {
         status,
         time: moment().toISOString(),
         meta,
       },
     });
-  } catch (error_: any) {
-    error(
-      `Failed to post update to oada at /${oadaId}/updates.  status = `,
-      error_.status
-    );
+  } catch (error_: unknown) {
+    error(error_, `Failed to post update to oada at /${oadaId}/updates`);
     throw error_;
   }
 }

@@ -22,45 +22,41 @@ import type { Runner } from './Runner.js';
  * Manages logging updates to a running job.
  */
 export class Logger {
-  private readonly runner: Runner;
-
   /**
    * Create a Logger.
-   * @param runner The runner of the job
+   * @param _runner The runner of the job
    */
-  constructor(runner: Runner) {
-    this.runner = runner;
-  }
+  constructor(private readonly _runner: Runner) {}
 
   public async info<T extends JsonCompatible<T>>(
     status: string,
-    meta: T
+    meta: T,
   ): Promise<void> {
-    await this.runner.postUpdate(status, meta);
+    await this._runner.postUpdate(status, meta);
   }
 
   public async debug<T extends JsonCompatible<T>>(
     status: string,
-    meta: T
+    meta: T,
   ): Promise<void> {
     if (process.env.OADA_JOBS_LOGGING?.includes('debug')) {
-      await this.runner.postUpdate(status, meta);
+      await this._runner.postUpdate(status, meta);
     }
   }
 
   public async trace<T extends JsonCompatible<T>>(
     status: string,
-    meta: T
+    meta: T,
   ): Promise<void> {
     if (process.env.OADA_JOBS_LOGGING?.includes('trace')) {
-      await this.runner.postUpdate(status, meta);
+      await this._runner.postUpdate(status, meta);
     }
   }
 
   public async error<T extends JsonCompatible<T>>(
     status: string,
-    meta: T
+    meta: T,
   ): Promise<void> {
-    await this.runner.postUpdate(status, meta);
+    await this._runner.postUpdate(status, meta);
   }
 }
