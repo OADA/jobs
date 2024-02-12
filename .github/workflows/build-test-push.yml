@@ -25,5 +25,5 @@ jobs:
     secrets:
       npm_token: ${{ secrets.NPM_AUTH_TOKEN }}
     with:
-      oada: false
+      oada: true
       publish: true
