@@ -128,29 +128,9 @@ export class Service {
     this.domain = this.#oada.getDomain();
     this.token = this.#oada.getToken()[0]!;
     this.concurrency = object.concurrency ?? this.#oada.getConcurrency();
-    this.metrics = {
-      [`${this.name}_total_failure`]: new  Gauge({
-        name: `${this.name}_total_failure`,
-        help: `Number of ${this.name} jobs that failed`,
-        labelNames: ['service', this.name],
-      }),
-      [`${this.name}_total_queued`]: new Gauge({
-        name: `${this.name}_total_queued`,
-        help: `Number of ${this.name} jobs that were queued`,
-        labelNames: ['service', 'type'],
-      }),
-      [`${this.name}_total_success`]: new  Gauge({
-        name: `${this.name}_total_success`,
-        help: `Number of ${this.name} jobs that succeeded`,
-        labelNames: ['service', this.name],
-      }),
-      [`${this.name}_total_running`]: new  Gauge({
-        name: `${this.name}_total_running`,
-        help: `Number of ${this.name} jobs that are running`,
-        labelNames: ['service', this.name],
-      }),
+    this.metrics = {};
+    this.#ensureMetrics();
 
-    }
     if (object.opts) {
       this.opts = object.opts;
     }
@@ -184,7 +164,6 @@ export class Service {
   }
 
   public async start(): Promise<void> {
-    await this.#initTotalMetrics();
     await this.#doQueue();
     for (const r of this.#reports.values()) {
       r.start();
@@ -214,8 +193,7 @@ export class Service {
    * @param worker Worker function
    */
   public on(type: string, timeout: number, work: WorkerFunction): void {
-    this.#ensureMetrics(type);
-    this.#initTypedMetrics(type);
+    this.#ensureTypedMetrics(type);
     this.#workers.set(type, { work, timeout });
   }
 
@@ -280,6 +258,7 @@ export class Service {
     } catch (error_) {
       warn('Invalid queue');
       debug('Invalid queue: %O', error_);
+      error(error_);
     }
   }
 
@@ -295,7 +274,7 @@ export class Service {
   /**
    * Create the metrics
    */
-  #ensureMetrics(type: string): void {
+  async #ensureTypedMetrics(type: string): Promise<void> {
     const statuses = ['queued', 'running', 'success', 'failure'];
     for (const status of statuses) {
       let mtype = type.replaceAll('-', '_').replaceAll(' ', '_');
@@ -306,10 +285,12 @@ export class Service {
           help: `Number of ${this.name} jobs of type "${type}" that are of status "${status}"`,
           labelNames: ['service', mtype, status],
         });
+        this.metrics[name].set(0);
       }
     }
   }
 
+  /*
   async #initTotalMetrics(): Promise<void> {
     const date = new Date().toISOString().split('T')[0];
     for await (const status of ['success', 'failure']) {
@@ -341,6 +322,32 @@ export class Service {
           if (j.type === type) this.metrics[`${this.name}_${status}_${mtype}`].inc();
         }
       } catch(err) {
+      }
+    }
+  }
+  */
+
+  async #ensureMetrics(): Promise<void> {
+    /*
+    this.#oada.ensure({
+      path: `/bookmarks/services/${this.name}/metrics`,
+      data: {},
+    });
+    const { data: val } = this.#oada.get({
+      path: `/bookmarks/services/${this.name}/metrics`,
+    })
+    */
+
+    const statuses = ['queued', 'running', 'success', 'failure'];
+    for (const status of statuses) {
+      const name = `${this.name}_total_${status}`;
+      if (!this.metrics[name]) {
+        this.metrics[name] = new Gauge({
+          name: name,
+          help: `Total number of ${this.name} jobs that are of status "${status}"`,
+          labelNames: ['service', 'total', status],
+        });
+        this.metrics[name].set(0);
       }
     }
   }

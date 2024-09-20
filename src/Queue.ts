@@ -154,7 +154,6 @@ export class Queue {
       // Clean up the resource and grab all existing jobs to run them before starting watch
       trace(`[QueueId ${this._id}] Adding existing jobs`);
       const jobs = stripResource(r.data as Record<string, unknown>);
-      this._service.metrics[`${this._service.name}_total_queued`].set(Object.keys(jobs).length);
 
       if (skipQueue) {
         info('Skipping existing jobs in the queue prior to startup.');
