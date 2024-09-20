@@ -21,7 +21,7 @@
     "forceConsistentCasingInFileNames": true,
     "rootDir": "src",
     "outDir": "dist",
-    "lib": ["ES2015"]
+    "lib": ["ES2021"]
   },
   "include": ["src"]
 }

@@ -68,6 +68,10 @@ export class Runner {
    * appropriate.
    */
   public async run(): Promise<void> {
+    const mtype = this.#job.type.replaceAll('-', '_').replaceAll(' ', '_');
+    this.#service.metrics[`${this.#service.name}_running_${mtype}`].inc();
+    this.#service.metrics[`${this.#service.name}_total_running`].inc();
+
     // A quick check to ensure job isn't already completed
     if (this.#job.status === 'success' || this.#job.status === 'failure') {
       debug(`[Runner ${this.#job.oadaId}] Job already complete.`);
@@ -191,16 +195,7 @@ export class Runner {
 
     // Link into success/failure event log
     const date = moment(time).format('YYYY-MM-DD');
-    // Const finalpath = `/bookmarks/services/${this.service.name}/jobs/${status}/day-index/${date}`;
-    let finalpath: string | undefined;
-    if (status === 'failure') {
-      finalpath = failType
-        ? `/bookmarks/services/${this.#service.name}/jobs/${status}/${failType}/day-index/${date}`
-        : `/bookmarks/services/${this.#service.name}/jobs/${status}/unknown/day-index/${date}`;
-    } else if (status === 'success') {
-      finalpath = `/bookmarks/services/${this.#service.name}/jobs/${status}/day-index/${date}`;
-    }
-
+    let finalpath = `/bookmarks/services/${this.#service.name}/jobs/${status}/day-index/${date}`;
     info(
       `[job ${this.#job.oadaId} ]: linking job to final resting place at ${finalpath}`,
     );
@@ -215,11 +210,43 @@ export class Runner {
       tree,
     });
 
+    // If there is a failType, also link to the typed failure log
+    if (status === 'failure' && failType) {
+      let typedFailPath = `/bookmarks/services/${this.#service.name}/jobs/typed-${status}/${failType}/day-index/${date}`;
+      info(
+        `[job ${this.#job.oadaId} ]: linking job to final resting place at ${typedFailPath}`,
+      );
+      await this.#oada.put({
+        path: typedFailPath!,
+        data: {
+          [this.#jobKey]: {
+            _id: this.#job.oadaId,
+            _rev: 0,
+          },
+        },
+        tree,
+      });
+    }
+
     // Remove from job queue
     trace(`[job ${this.#job.oadaId} ]: removing from jobs queue`);
     await this.#oada.delete({
       path: `/bookmarks/services/${this.#service.name}/jobs/pending/${this.#jobKey}`,
     });
+
+    trace(
+      `[job ${this.#job.oadaId} ]: marking job as ${status}`,
+      failType ?? 'unknown',
+    );
+    const mtype = this.#job.type.replaceAll('-', '_').replaceAll(' ', '_');
+    this.#service.metrics[`${this.#service.name}_total_queued`].dec();
+    this.#service.metrics[`${this.#service.name}_queued_${mtype}`].dec();
+
+    this.#service.metrics[`${this.#service.name}_total_running`].dec();
+    this.#service.metrics[`${this.#service.name}_running_${mtype}`].dec();
+
+    this.#service.metrics[`${this.#service.name}_total_${status}`].inc();
+    this.#service.metrics[`${this.#service.name}_${status}_${mtype}`].inc();
 
     // Notify the status reporter if there is one
     try {

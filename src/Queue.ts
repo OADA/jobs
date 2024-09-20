@@ -151,12 +151,14 @@ export class Queue {
 
       info(`[QueueId ${this._id}] Started WATCH.`);
 
+      // Clean up the resource and grab all existing jobs to run them before starting watch
+      trace(`[QueueId ${this._id}] Adding existing jobs`);
+      const jobs = stripResource(r.data as Record<string, unknown>);
+      this._service.metrics[`${this._service.name}_total_queued`].set(Object.keys(jobs).length);
+
       if (skipQueue) {
         info('Skipping existing jobs in the queue prior to startup.');
       } else {
-        // Clean up the resource and grab all existing jobs to run them before starting watch
-        trace(`[QueueId ${this._id}] Adding existing jobs`);
-        const jobs = stripResource(r.data as Record<string, unknown>);
         // AssertJobs(jobs);
         await this.#doJobs(jobs as OADAJobs);
         trace(
@@ -198,11 +200,14 @@ export class Queue {
   async #doJobs(jobs: OADAJobs | OADAJobsChange): Promise<void> {
     // Queue up the Runners in parallel
     for (const [jobKey, value] of Object.entries(jobs)) {
+      this._service.metrics[`${this._service.name}_total_queued`].inc();
       void this.#queue.add(async () => {
         const { _id } = value as Link;
         if (!_id) return;
         // Fetch the job
         const { job, isJob } = await Job.fromOada(this.#oada, _id);
+        const mtype = job.type.replaceAll('-', '_').replaceAll(' ', '_');
+        this._service.metrics[`${this._service.name}_queued_${mtype}`].inc();
 
         // Instantiate a runner to manage the job
         const runner = new Runner(this._service, jobKey, job, this.#oada);

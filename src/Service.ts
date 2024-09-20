@@ -18,12 +18,14 @@
 import type { Config } from '@oada/client';
 import { OADAClient } from '@oada/client';
 import { assert as assertQueue } from '@oada/types/oada/service/queue.js';
+import { Gauge } from '@oada/lib-prom';
 
 import { Report, type ReportConstructor } from './Report.js';
 import { debug, error, warn } from './utils.js';
 import type { Job } from './Job.js';
 import type { Json } from './index.js';
 import type { Logger } from './Logger.js';
+import moment from 'moment';
 import { Queue } from './Queue.js';
 
 export type Domain = string;
@@ -63,6 +65,10 @@ export interface ConstructorArguments {
   opts?: ServiceOptions;
 }
 
+export interface ServiceMetrics {
+  [key: string]: any;
+}
+
 export const defaultServiceQueueName = 'default-service-queue';
 
 /**
@@ -81,6 +87,7 @@ export class Service {
   public domain: string;
   public token: string;
   public opts: ServiceOptions | undefined;
+  public metrics: ServiceMetrics;
 
   readonly #oada: OADAClient;
   // Readonly #clients = new Map<Domain, OADAClient>();
@@ -122,6 +129,29 @@ export class Service {
     this.domain = this.#oada.getDomain();
     this.token = this.#oada.getToken()[0]!;
     this.concurrency = object.concurrency ?? this.#oada.getConcurrency();
+    this.metrics = {
+      [`${this.name}_total_failure`]: new  Gauge({
+        name: `${this.name}_total_failure`,
+        help: `Number of ${this.name} jobs that failed`,
+        labelNames: ['service', this.name],
+      }),
+      [`${this.name}_total_queued`]: new Gauge({
+        name: `${this.name}_total_queued`,
+        help: `Number of ${this.name} jobs that were queued`,
+        labelNames: ['service', 'type'],
+      }),
+      [`${this.name}_total_success`]: new  Gauge({
+        name: `${this.name}_total_success`,
+        help: `Number of ${this.name} jobs that succeeded`,
+        labelNames: ['service', this.name],
+      }),
+      [`${this.name}_total_running`]: new  Gauge({
+        name: `${this.name}_total_running`,
+        help: `Number of ${this.name} jobs that are running`,
+        labelNames: ['service', this.name],
+      }),
+
+    }
     if (object.opts) {
       this.opts = object.opts;
     }
@@ -155,6 +185,7 @@ export class Service {
   }
 
   public async start(): Promise<void> {
+    await this.#initTotalMetrics();
     await this.#doQueue();
     for (const r of this.#reports.values()) {
       r.start();
@@ -184,6 +215,8 @@ export class Service {
    * @param worker Worker function
    */
   public on(type: string, timeout: number, work: WorkerFunction): void {
+    this.#ensureMetrics(type);
+    this.#initTypedMetrics(type);
     this.#workers.set(type, { work, timeout });
   }
 
@@ -257,6 +290,59 @@ export class Service {
     } catch (error_) {
       warn('Unable to stop queues');
       debug('Unable to stop queue %0', error_);
+    }
+  }
+
+  /**
+   * Create the metrics
+   */
+  #ensureMetrics(type: string): void {
+    const statuses = ['queued', 'running', 'success', 'failure'];
+    for (const status of statuses) {
+      let mtype = type.replaceAll('-', '_').replaceAll(' ', '_');
+      const name = `${this.name}_${status}_${mtype}`;
+      if (!this.metrics[name]) {
+        this.metrics[name] = new Gauge({
+          name: name,
+          help: `Number of ${this.name} jobs of type "${type}" that are of status "${status}"`,
+          labelNames: ['service', mtype, status],
+        });
+      }
+    }
+  }
+
+  async #initTotalMetrics(): Promise<void> {
+    const date = moment().format('YYYY-MM-DD');
+    for await (const status of ['success', 'failure']) {
+      try {
+        let { data } = await this.#oada.get({
+          path: `/bookmarks/services/${this.name}/jobs/${status}/day-index/${date}`
+        })
+        let keys = Object.keys(data as Record<string, any>).filter(key => !key.startsWith('_'));
+        this.metrics[`${this.name}_total_${status}`].set(keys.length);
+      } catch(err) {
+        this.metrics[`${this.name}_total_${status}`].set(0);
+      }
+    }
+  }
+
+  async #initTypedMetrics(type: string): Promise<void> {
+    let mtype = type.replaceAll('-', '_').replaceAll(' ', '_');
+    const date = moment().format('YYYY-MM-DD');
+    for await (const status of ['success', 'failure']) {
+      try {
+        this.metrics[`${this.name}_${status}_${mtype}`].set(0);
+        let { data } = await this.#oada.get({
+          path: `/bookmarks/services/${this.name}/jobs/${status}/day-index/${date}`
+        })
+        for await (const job of Object.keys(data as Record<string, any>)) {
+          let { data: j } = await this.#oada.get({
+            path: `/bookmarks/services/${this.name}/jobs/${status}/day-index/${date}/${job}`
+          }) as unknown as { data: { j: string, [k: string]: any } };
+          if (j.type === type) this.metrics[`${this.name}_${status}_${mtype}`].inc();
+        }
+      } catch(err) {
+      }
     }
   }
 }
