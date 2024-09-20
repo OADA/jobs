@@ -251,7 +251,7 @@ export class Report {
     )) {
       if (pointer === 'errorMappings') {
         data[colName] = errorType
-          ? report.reportConfig.errorMappings[errorType] ?? 'Other Error'
+          ? (report.reportConfig.errorMappings[errorType] ?? 'Other Error')
           : 'Success';
       }
     }
@@ -360,7 +360,7 @@ export async function reportOnItem(
   )) {
     if (pointer === 'errorMappings') {
       data[colName] = errorType
-        ? report.reportConfig.errorMappings[errorType] ?? 'Other Error'
+        ? (report.reportConfig.errorMappings[errorType] ?? 'Other Error')
         : 'Success';
     }
   }
