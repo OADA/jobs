@@ -66,13 +66,13 @@ test.before(async (t) => {
     .then((r) => oadaify(r.data as Json));
   if (typeof existing === 'object' && existing) {
     const testservices = Object.keys(existing).filter((servicename) =>
-      /^JOBSTEST/.exec(servicename)
+      /^JOBSTEST/.exec(servicename),
     );
     await Promise.all(
       testservices.map(async (servicename) => {
         trace('Found old test job service: ', servicename, ', deleting it');
         await oada.delete({ path: `/bookmarks/services/${servicename}` });
-      })
+      }),
     );
   }
 
@@ -146,7 +146,7 @@ test('Should move successful job to success queue, have status success, and stor
     t.is((result as OADAJob)?.status, 'success');
     t.deepEqual((result as OADAJob)?.result, { success: true }); // This is what the basic service handler returns
   } catch (error_: any) {
-    if (error_.status === 404) return ; // If it's not there, just return false
+    if (error_.status === 404) return; // If it's not there, just return false
     throw error_ as Error; // Any other error, throw it back up
   }
 });

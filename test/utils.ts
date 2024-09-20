@@ -21,7 +21,7 @@ import { tree } from '../dist/tree.js';
 
 export async function deleteResourceAndLinkIfExists(
   oada: OADAClient,
-  path: string
+  path: string,
 ): Promise<void> {
   try {
     await oada.head({ path });
@@ -41,14 +41,14 @@ export function keyFromLocation(r: ConnectionResponse) {
 export async function postJob(
   oada: OADAClient,
   path: string,
-  job: Json
+  job: Json,
 ): Promise<{ _id: string; key: string }> {
   // 1:Create a resource for the job and keep resource id to return
   const _id = await oada
     .post({
       path: '/resources',
       data: job as unknown as Json,
-      contentType: tree.bookmarks!.services!['*']!.jobs!._type,
+      contentType: tree.bookmarks.services['*'].jobs._type,
     })
     .then((r) => r.headers['content-location']?.replace(/^\//, '') ?? ''); // Get rid of leading slash for link
 
@@ -57,11 +57,12 @@ export async function postJob(
     .post({
       path,
       data: { _id },
-      contentType: tree.bookmarks!.services!['*']!.jobs!.pending!['*']!._type,
+      contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
     })
     .then(
       (r) =>
-        r.headers['content-location']?.replace(/\/resources\/[^/]+\//, '') ?? ''
+        r.headers['content-location']?.replace(/\/resources\/[^/]+\//, '') ??
+        '',
     ); // Get rid of resourceId to get the new key
 
   return { _id, key };

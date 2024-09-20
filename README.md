@@ -63,7 +63,7 @@ service.on(
     });
 
     return { coolThing: r.data.thing };
-  }
+  },
 );
 
 service.start().catch((e: unknown) => {

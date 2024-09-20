@@ -106,7 +106,7 @@ test.before(async () => {
       },
     },
     frequency: `${s} ${min} ${hr} * * *`,
-    email: () => {
+    email() {
       const date = moment().format('YYYY-MM-DD');
       return {
         from: 'noreply@trellis.one',
@@ -221,7 +221,7 @@ test('Should post a job to abalonemail when it is time to report', async (t) => 
   t.true(keys.length > 0);
 
   const { data: email } = (await oada.get({
-    path: `${successJobs}/${date}/${keys[keys.length - 1]}`,
+    path: `${successJobs}/${date}/${keys.at(-1)}`,
   })) as unknown as { data: EmailJob };
   t.is(email.config.from, 'noreply@trellis.one');
   t.is(email.config.subject, `Test Email - ${date}`);
@@ -257,7 +257,7 @@ test.only('parseAttachments should be able to reconstruct the csv object', async
       },
     },
     frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
-    email: () => {
+    email() {
       const date = moment().format('YYYY-MM-DD');
       return {
         from: 'noreply@trellis.one',
@@ -325,7 +325,7 @@ test.skip('Should not generate an abalonemail job when the report data is empty'
       },
     },
     frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
-    email: () => {
+    email() {
       const date = moment().format('YYYY-MM-DD');
       return {
         from: 'noreply@trellis.one',
@@ -383,7 +383,7 @@ test.skip('Should generate an abalonemail job when the report data is empty and 
       },
     },
     frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
-    email: () => {
+    email() {
       const date = moment().format('YYYY-MM-DD');
       return {
         from: 'noreply@trellis.one',

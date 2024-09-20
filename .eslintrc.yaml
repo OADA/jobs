@@ -37,7 +37,7 @@ parser: '@typescript-eslint/parser'
 
 parserOptions:
   ecmaVersion: 2020
-  project: './**/tsconfig.*'
+  project: ./**/tsconfig.json
 
 overrides:
   - files: '*.{c,m,}ts'
@@ -48,7 +48,7 @@ overrides:
       - prettier
     parserOptions:
       ecmaVersion: 2020
-      project: './**/tsconfig.*'
+      project: ./**/tsconfig.json
     rules:
       '@typescript-eslint/naming-convention':
         [
@@ -76,6 +76,12 @@ overrides:
             modifiers: [private],
             format: [camelCase],
             leadingUnderscore: require,
+          },
+
+          {
+            selector: memberLike,
+            modifiers: [static, readonly],
+            format: [PascalCase],
           },
 
           { selector: typeLike, format: [PascalCase] },

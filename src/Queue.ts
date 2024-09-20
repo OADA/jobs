@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import PQueue from 'p-queue';
 import moment from 'moment';
 
 import type { Link } from '@oada/types/oada.js';
@@ -24,12 +25,10 @@ import type OADAJobsChange from '@oada/types/oada/service/jobs-change.js';
 // TODO: Fix this type and get it back in here
 // import { assert as assertJobs } from '@oada/types/oada/service/jobs-change.js';
 
+import { error, info, stripResource, trace } from './utils.js';
 import { Job } from './Job.js';
-import PQueue from 'p-queue';
 import { Runner } from './Runner.js';
 import type { Service } from './Service.js';
-
-import { error, info, stripResource, trace } from './utils.js';
 import { tree } from './tree.js';
 
 /**
@@ -39,6 +38,7 @@ export class Queue {
   #watchRequestId: string | string[] = '';
   readonly #oada: OADAClient;
   readonly #queue: PQueue;
+  readonly #service;
 
   /**
    * Creates queue watcher
@@ -46,12 +46,13 @@ export class Queue {
    * @param token? The token for the queue to watch, or undefined if an OADA client was passed
    */
   constructor(
-    private readonly _service: Service,
+    _service: Service,
     private readonly _id: string,
   ) {
     // , token?: string) {
+    this.#service = _service;
     this.#oada = _service.getClient(); // .clone(token ?? '');
-    this.#queue = new PQueue({ concurrency: this._service.concurrency });
+    this.#queue = new PQueue({ concurrency: this.#service.concurrency });
     /*
     If (typeof domainOrOada === 'string') {
       this.oada = service.getClient().clone(token ?? '');
@@ -70,7 +71,7 @@ export class Queue {
    * Opens the WATCH and begins processing jobs
    */
   public async start(skipQueue = false): Promise<void> {
-    const root = `/bookmarks/services/${this._service.name}`;
+    const root = `/bookmarks/services/${this.#service.name}`;
     const jobspath = `${root}/jobs/pending`;
     const successpath = `${root}/jobs/success`;
     const failurepath = `${root}/jobs/failure`;
@@ -199,17 +200,19 @@ export class Queue {
   async #doJobs(jobs: OADAJobs | OADAJobsChange): Promise<void> {
     // Queue up the Runners in parallel
     for (const [jobKey, value] of Object.entries(jobs)) {
-      this._service.metrics[`${this._service.name}_total_queued`].inc();
       void this.#queue.add(async () => {
         const { _id } = value as Link;
         if (!_id) return;
         // Fetch the job
         const { job, isJob } = await Job.fromOada(this.#oada, _id);
-        const mtype = job.type.replaceAll('-', '_').replaceAll(' ', '_');
-        this._service.metrics[`${this._service.name}_queued_${mtype}`].inc();
+        this.#service.metrics.inc({
+          service: this.#service.name,
+          type: job.type,
+          state: 'queued',
+        });
 
         // Instantiate a runner to manage the job
-        const runner = new Runner(this._service, jobKey, job, this.#oada);
+        const runner = new Runner(this.#service, jobKey, job, this.#oada);
 
         if (!isJob) {
           await runner.finish('failure', {}, moment());

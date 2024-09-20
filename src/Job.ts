@@ -42,6 +42,13 @@ export interface JobUpdate {
  * Holds job data
  */
 export class Job {
+  static readonly Statuses = [
+    'queued',
+    'running',
+    'success',
+    'failure',
+  ] as const;
+
   /**
    * Fetch a Job from an OADA resource ID
    * @param oada Authenticated OADAClient to fetch Job object

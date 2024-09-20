@@ -31,6 +31,7 @@ import { tree } from './tree.js';
 import { onFinish as slackOnFinish } from './finishReporters/slack/index.js';
 
 export class JobError extends Error {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   'JobError'?: string;
   'constructor'(m: string, t?: string) {
     super(m);
@@ -68,9 +69,11 @@ export class Runner {
    * appropriate.
    */
   public async run(): Promise<void> {
-    const mtype = this.#job.type.replaceAll('-', '_').replaceAll(' ', '_');
-    this.#service.metrics[`${this.#service.name}_running_${mtype}`].inc();
-    this.#service.metrics[`${this.#service.name}_total_running`].inc();
+    this.#service.metrics.inc({
+      service: this.#service.name,
+      type: this.#job.type,
+      state: 'running',
+    });
 
     // A quick check to ensure job isn't already completed
     if (this.#job.status === 'success' || this.#job.status === 'failure') {
@@ -125,7 +128,7 @@ export class Runner {
       trace(`[job ${this.#job.oadaId}] Error: %O`, error_);
 
       await (error_ instanceof TimeoutError
-        ? this.finish('failure', error_, moment(), 'timeout')
+        ? this.finish('failure', error_ as unknown as Json, moment(), 'timeout')
         : this.finish('failure', error_, moment(), error_.JobError));
     }
   }
@@ -180,7 +183,8 @@ export class Runner {
     }
 
     trace(
-      `[job ${this.#job.oadaId} ]: putting to job resource the final {status,result} = ${data}`,
+      { job: this.#job.oadaId, ...data },
+      'Putting to job resource the final status/result',
     );
     await this.#oada.put({
       path: `/${this.#job.oadaId}`,
@@ -195,12 +199,12 @@ export class Runner {
 
     // Link into success/failure event log
     const date = moment(time).format('YYYY-MM-DD');
-    let finalpath = `/bookmarks/services/${this.#service.name}/jobs/${status}/day-index/${date}`;
+    const finalpath = `/bookmarks/services/${this.#service.name}/jobs/${status}/day-index/${date}`;
     info(
       `[job ${this.#job.oadaId} ]: linking job to final resting place at ${finalpath}`,
     );
     await this.#oada.put({
-      path: finalpath!,
+      path: finalpath,
       data: {
         [this.#jobKey]: {
           _id: this.#job.oadaId,
@@ -212,12 +216,12 @@ export class Runner {
 
     // If there is a failType, also link to the typed failure log
     if (status === 'failure' && failType) {
-      let typedFailPath = `/bookmarks/services/${this.#service.name}/jobs/typed-${status}/${failType}/day-index/${date}`;
+      const typedFailPath = `/bookmarks/services/${this.#service.name}/jobs/typed-${status}/${failType}/day-index/${date}`;
       info(
         `[job ${this.#job.oadaId} ]: linking job to final resting place at ${typedFailPath}`,
       );
       await this.#oada.put({
-        path: typedFailPath!,
+        path: typedFailPath,
         data: {
           [this.#jobKey]: {
             _id: this.#job.oadaId,
@@ -238,15 +242,26 @@ export class Runner {
       `[job ${this.#job.oadaId} ]: marking job as ${status}`,
       failType ?? 'unknown',
     );
-    const mtype = this.#job.type.replaceAll('-', '_').replaceAll(' ', '_');
-    this.#service.metrics[`${this.#service.name}_total_queued`].dec();
-    this.#service.metrics[`${this.#service.name}_queued_${mtype}`].dec();
 
-    this.#service.metrics[`${this.#service.name}_total_running`].dec();
-    this.#service.metrics[`${this.#service.name}_running_${mtype}`].dec();
+    // Decrement queued job count?
+    this.#service.metrics.dec({
+      service: this.#service.name,
+      type: this.#job.type,
+      state: 'queued',
+    });
+    // Decrement running job count
+    this.#service.metrics.dec({
+      service: this.#service.name,
+      type: this.#job.type,
+      state: 'running',
+    });
 
-    this.#service.metrics[`${this.#service.name}_total_${status}`].inc();
-    this.#service.metrics[`${this.#service.name}_${status}_${mtype}`].inc();
+    // Increment successes or failures based on status
+    this.#service.metrics.inc({
+      service: this.#service.name,
+      type: this.#job.type,
+      state: status,
+    });
 
     // Notify the status reporter if there is one
     try {
@@ -275,7 +290,7 @@ export class Runner {
               await slackOnFinish({
                 config: r,
                 service: this.#service,
-                finalpath: finalpath!,
+                finalpath,
                 job: finaljob,
                 jobId: this.#job.oadaId,
                 status,

@@ -1,5 +1,5 @@
 {
-  "extends": "@tsconfig/node16",
+  "extends": "@tsconfig/node20",
   "compilerOptions": {
     "composite": true,
     "module": "Node16",
@@ -20,8 +20,7 @@
     "sourceMap": true,
     "forceConsistentCasingInFileNames": true,
     "rootDir": "src",
-    "outDir": "dist",
-    "lib": ["ES2021"]
+    "outDir": "dist"
   },
   "include": ["src"]
 }
