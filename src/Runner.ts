@@ -143,7 +143,7 @@ export class Runner {
         contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
         data: {
           status,
-          time: moment().toISOString(),
+          time: new Date().toISOString(),
           meta,
         },
       });

@@ -16,7 +16,6 @@
  */
 
 import _debug from 'debug';
-import moment from 'moment';
 
 import type { ConnectionResponse, Json, OADAClient } from '@oada/client';
 
@@ -101,7 +100,7 @@ export async function postUpdate(
       contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
       data: {
         status,
-        time: moment().toISOString(),
+        time: new Date().toISOString(),
         meta,
       },
     });

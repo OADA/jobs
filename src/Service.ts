@@ -25,7 +25,6 @@ import { debug, error, warn } from './utils.js';
 import type { Job } from './Job.js';
 import type { Json } from './index.js';
 import type { Logger } from './Logger.js';
-import moment from 'moment';
 import { Queue } from './Queue.js';
 
 export type Domain = string;
@@ -312,7 +311,7 @@ export class Service {
   }
 
   async #initTotalMetrics(): Promise<void> {
-    const date = moment().format('YYYY-MM-DD');
+    const date = new Date().toISOString().split('T')[0];
     for await (const status of ['success', 'failure']) {
       try {
         let { data } = await this.#oada.get({
@@ -328,7 +327,7 @@ export class Service {
 
   async #initTypedMetrics(type: string): Promise<void> {
     let mtype = type.replaceAll('-', '_').replaceAll(' ', '_');
-    const date = moment().format('YYYY-MM-DD');
+    const date = new Date().toISOString().split('T')[0];
     for await (const status of ['success', 'failure']) {
       try {
         this.metrics[`${this.name}_${status}_${mtype}`].set(0);
