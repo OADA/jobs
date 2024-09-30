@@ -161,10 +161,7 @@ export class Queue {
       } else {
         // AssertJobs(jobs);
         await this.#doJobs(jobs as OADAJobs);
-        trace(
-          Object.keys(jobs).length,
-          ' existing jobs added and doJobs is complete, starting watch.',
-        );
+        trace(`Existing queue size: ${Object.keys(jobs).length}`);
       }
     } catch (error_) {
       error(`[QueueId: ${this._id}] Failed to start WATCH, %O`, error_);
