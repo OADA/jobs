@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
+import { type Logger, pino } from '@oada/pino-debug';
+
 import type { Config } from '@oada/client';
 import { Gauge } from '@oada/lib-prom';
 import { OADAClient } from '@oada/client';
 import { assert as assertQueue } from '@oada/types/oada/service/queue.js';
 
 import { Report, type ReportConstructor } from './Report.js';
-import { debug, error, warn } from './utils.js';
 import { type Job } from './Job.js';
 import type { Json } from './index.js';
-import type { Logger } from './Logger.js';
 import { Queue } from './Queue.js';
 
 export type Domain = string;
@@ -62,6 +62,7 @@ export interface ConstructorArguments {
   oada?: OADAClient | Config;
   concurrency?: number;
   opts?: ServiceOptions;
+  log?: Logger;
 }
 
 export const defaultServiceQueueName = 'default-service-queue';
@@ -83,6 +84,7 @@ export class Service {
   public token: string;
   public opts: ServiceOptions | undefined;
   public metrics;
+  public log: Logger;
 
   readonly #oada: OADAClient;
   // Readonly #clients = new Map<Domain, OADAClient>();
@@ -100,17 +102,21 @@ export class Service {
    */
   constructor(object: ConstructorArguments) {
     this.name = object.name;
+    this.log = object.log ?? pino({ base: { service: this.name } });
+
     if (
       // @ts-expect-error instanceof OADAClient does not work
       object.oada?.getDomain !== undefined &&
       // @ts-expect-error instanceof OADAClient does not work
       object.oada?.getToken !== undefined
     ) {
-      debug('Using oada connection passed to constructor');
+      this.log.debug('Using oada connection passed to constructor');
       // @ts-expect-error instanceof OADAClient does not work
       this.#oada = object.oada;
     } else {
-      debug('Opening OADA connection from domain/token that were passed');
+      this.log.debug(
+        'Opening OADA connection from domain/token that were passed'
+      );
       try {
         // @ts-expect-error instanceof OADAClient does not work
         this.#oada = new OADAClient(object.oada!);
@@ -124,7 +130,6 @@ export class Service {
     this.domain = this.#oada.getDomain();
     this.token = this.#oada.getToken()[0]!;
     this.concurrency = object.concurrency ?? this.#oada.getConcurrency();
-
     // TODO: Get total pending jobs in collect callback?
     this.metrics = new Gauge({
       name: 'oada_jobs_total',
@@ -213,7 +218,7 @@ export class Service {
     const worker = this.#workers.get(type);
 
     if (!worker) {
-      error('No worker registered for %s', type);
+      this.log.error('No worker registered for %s', type);
       throw new Error(`No worker registered for ${type}`);
     }
 
@@ -256,9 +261,9 @@ export class Service {
       await queue.start(this.opts?.skipQueueOnStartup);
       this.#queue = queue;
     } catch (error_) {
-      warn('Invalid queue');
-      debug('Invalid queue: %O', error_);
-      error(error_);
+      this.log.warn('Invalid queue');
+      this.log.debug('Invalid queue: %O', error_);
+      this.log.error(error_);
     }
   }
 
@@ -266,8 +271,8 @@ export class Service {
     try {
       await this.#queue?.stop();
     } catch (error_) {
-      warn('Unable to stop queues');
-      debug('Unable to stop queue %0', error_);
+      this.log.warn('Unable to stop queues');
+      this.log.debug('Unable to stop queue %0', error_);
     }
   }
 

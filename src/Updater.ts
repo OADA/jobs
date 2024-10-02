@@ -21,9 +21,9 @@ import type { Runner } from './Runner.js';
 /**
  * Manages logging updates to a running job.
  */
-export class Logger {
+export class Updater {
   /**
-   * Create a Logger.
+   * Create a Updater.
    * @param _runner The runner of the job
    */
   constructor(private readonly _runner: Runner) {}

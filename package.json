@@ -1,6 +1,6 @@
 {
   "name": "@oada/jobs",
-  "version": "4.6.1",
+  "version": "4.7.0",
   "description": "A library for oada job based microservices",
   "source": "src/index.ts",
   "main": "dist/index.js",
@@ -62,6 +62,7 @@
     "@oada/lib-prom": "^3.8.0",
     "@oada/list-lib": "^4.3.0",
     "@oada/oadaify": "^2.1.0",
+    "@oada/pino-debug": "^4.0.1",
     "@oada/types": "^3.5.3",
     "@sindresorhus/is": "^6.3.1",
     "ava": "^6.1.3",

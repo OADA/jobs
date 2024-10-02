@@ -24,12 +24,13 @@ declare global {
 export {
   Service,
   type WorkerFunction,
+  type WorkerContext,
   type JobId,
   type FinishReporter,
 } from './Service.js';
 export { JobError } from './Runner.js';
 export { type JobUpdate, Job } from './Job.js';
-export { Logger } from './Logger.js';
+//export { Logger } from './Logger.js';
 export { parseAttachment, reportOnItem, type ReportConfig } from './Report.js';
 export { postJob, postUpdate } from './utils.js';
 

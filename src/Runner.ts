@@ -24,7 +24,7 @@ import type { OADAClient } from '@oada/client';
 import type { Json, JsonCompatible } from './index.js';
 import { debug, error, info, trace } from './utils.js';
 import { Job } from './Job.js';
-import { Logger } from './Logger.js';
+import type { Logger } from '@oada/pino-debug';
 import type { Service } from './Service.js';
 import { tree } from './tree.js';
 
@@ -48,6 +48,7 @@ export class Runner {
   readonly #jobKey: string;
   readonly #job: Job;
   readonly #oada: OADAClient;
+  readonly #log: Logger;
 
   /**
    * Create a Runner
@@ -61,6 +62,13 @@ export class Runner {
     this.#jobKey = jobKey;
     this.#job = job;
     this.#oada = oada;
+    this.#log = service.log.child({
+      jobId: job.oadaId,
+      type: job.type,
+      // @ts-expect-error Json type is annoying
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      ...(job?.config?.traceId ? { traceId: job?.config?.traceId } : {}),
+    });
   }
 
   /**
@@ -112,7 +120,7 @@ export class Runner {
       const r = await pTimeout(
         worker.work(this.#job, {
           jobId: this.#job.oadaId,
-          log: new Logger(this),
+          log: this.#log,
           oada: this.#oada,
         }),
         {
