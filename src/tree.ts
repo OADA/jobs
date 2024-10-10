@@ -35,14 +35,14 @@ export const tree = {
           },
         },
         jobs: {
-          _type: 'application/vnd.oada.service.jobs.1+json',
-          pending: {
+          '_type': 'application/vnd.oada.service.jobs.1+json',
+          'pending': {
             '_type': 'application/vnd.oada.service.jobs.1+json',
             '*': {
               _type: 'application/vnd.oada.service.job.1+json',
             },
           },
-          success: {
+          'success': {
             '_type': 'application/vnd.oada.service.jobs.1+json',
             '_rev': 0,
             'day-index': {
@@ -56,7 +56,7 @@ export const tree = {
               },
             },
           },
-          failure: {
+          'failure': {
             '_type': 'application/vnd.oada.service.jobs.1+json',
             '_rev': 0,
             'day-index': {
@@ -69,6 +69,8 @@ export const tree = {
                 },
               },
             },
+          },
+          'typed-failure': {
             '*': {
               '_type': 'application/vnd.oada.service.jobs.1+json',
               '_rev': 0,
@@ -84,7 +86,7 @@ export const tree = {
               },
             },
           },
-          reports: {
+          'reports': {
             '_type': 'application/vnd.oada.service.reports.1+json',
             '*': {
               '_type': 'application/vnd.oada.service.report.1+json',
