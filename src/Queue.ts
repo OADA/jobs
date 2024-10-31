@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+import '@oada/pino-debug';
 import PQueue from 'p-queue';
 import moment from 'moment';
 
@@ -49,22 +49,9 @@ export class Queue {
     _service: Service,
     private readonly _id: string,
   ) {
-    // , token?: string) {
     this.#service = _service;
     this.#oada = _service.getClient(); // .clone(token ?? '');
     this.#queue = new PQueue({ concurrency: this.#service.concurrency });
-    /*
-    If (typeof domainOrOada === 'string') {
-      this.oada = service.getClient().clone(token ?? '');
-    } else {
-      debug(
-        '[Queue ',
-        id,
-        ']: Using default existing OADA connection for default queue'
-      );
-      this.oada = domainOrOada;
-    }
-    */
   }
 
   /**
@@ -196,18 +183,19 @@ export class Queue {
    */
   async #doJobs(jobs: OADAJobs | OADAJobsChange): Promise<void> {
     // Queue up the Runners in parallel
-    for (const [jobKey, value] of Object.entries(jobs)) {
-      void this.#queue.add(async () => {
-        const { _id } = value as Link;
-        if (!_id) return;
-        // Fetch the job
-        const { job, isJob } = await Job.fromOada(this.#oada, _id);
-        this.#service.metrics.inc({
-          service: this.#service.name,
-          type: job.type,
-          state: 'queued',
-        });
+    for await (const [jobKey, value] of Object.entries(jobs)) {
+      const { _id } = value as Link;
+      if (!_id) return;
+      // Fetch the job
+      const { job, isJob } = await Job.fromOada(this.#oada, _id);
 
+      this.#service.metrics.jobs.inc({
+        service: this.#service.name,
+        type: job.type,
+        state: 'queued',
+      });
+
+      void this.#queue.add(async () => {
         // Instantiate a runner to manage the job
         const runner = new Runner(this.#service, jobKey, job, this.#oada);
 

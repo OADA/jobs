@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+import '@oada/pino-debug';
 import _debug from 'debug';
 
 import type { ConnectionResponse, Json, OADAClient } from '@oada/client';

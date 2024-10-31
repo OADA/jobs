@@ -557,6 +557,7 @@ __metadata:
     moment: "npm:^2.30.1"
     p-queue: "npm:^8.0.1"
     p-timeout: "npm:^6.1.2"
+    perf_hooks: "npm:^0.0.1"
     prettier: "npm:^3.3.3"
     serialize-error: "npm:^11.0.3"
     tiny-json-http: "npm:^7.5.1"
@@ -5776,6 +5777,13 @@ __metadata:
   version: 5.0.0
   resolution: "peek-readable@npm:5.0.0"
   checksum: 10/d342f02dd0c8a6b4bd0e7519a93d545b2b19375200e79a7431f0f1ec3f91e22b2217fa3a15cde95f6ab388ce6fce8aae75794d84b9b39c5836eb7c5f55e7ee9e
+  languageName: node
+  linkType: hard
+
+"perf_hooks@npm:^0.0.1":
+  version: 0.0.1
+  resolution: "perf_hooks@npm:0.0.1"
+  checksum: 10/a38f6397943cd55b7780e1ae504f187d218a4c986afcdd674a68fc4937aa415f29e3e007c26e498b55e277052f1bee3028b348ce7509ad1a47c2e8d0d381bd87
   languageName: node
   linkType: hard
 

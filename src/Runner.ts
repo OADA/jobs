@@ -25,6 +25,7 @@ import type { Json, JsonCompatible } from './index.js';
 import { debug, error, info, trace } from './utils.js';
 import { Job } from './Job.js';
 import type { Logger } from '@oada/pino-debug';
+import { performance } from 'perf_hooks';
 import type { Service } from './Service.js';
 import { tree } from './tree.js';
 
@@ -49,6 +50,7 @@ export class Runner {
   readonly #job: Job;
   readonly #oada: OADAClient;
   readonly #log: Logger;
+  #startTime: undefined | number;
 
   /**
    * Create a Runner
@@ -77,7 +79,7 @@ export class Runner {
    * appropriate.
    */
   public async run(): Promise<void> {
-    this.#service.metrics.inc({
+    this.#service.metrics.jobs.inc({
       service: this.#service.name,
       type: this.#job.type,
       state: 'running',
@@ -112,6 +114,7 @@ export class Runner {
       // Annotate the Runner finishing
       await this.postUpdate('started', 'Runner started');
       trace('Update posted');
+      this.#startTime = performance.now();
 
       // NOTE: pTimeout will reject after `worker.timeout` ms and attempt
       // `cancel()` the promise returned by `worker.work`; However, if that
@@ -131,6 +134,12 @@ export class Runner {
 
       info(`[job ${this.#job.oadaId}] Successful`);
       await this.finish('success', r, moment());
+      const duration = performance.now() - this.#startTime;
+      this.#service.metrics['job-times'].observe({
+        service: this.#service.name,
+        type: this.#job.type,
+        status: 'success',
+      }, duration);
     } catch (error_: any) {
       error(`[job ${this.#job.oadaId}] Failed`);
       trace(`[job ${this.#job.oadaId}] Error: %O`, error_);
@@ -138,6 +147,12 @@ export class Runner {
       await (error_ instanceof TimeoutError
         ? this.finish('failure', error_ as unknown as Json, moment(), 'timeout')
         : this.finish('failure', error_, moment(), error_.JobError));
+      const duration = performance.now() - this.#startTime!;
+      this.#service.metrics['job-times'].observe({
+        service: this.#service.name,
+        type: this.#job.type,
+        status: 'failure',
+      }, duration);
     }
   }
 
@@ -252,20 +267,20 @@ export class Runner {
     );
 
     // Decrement queued job count?
-    this.#service.metrics.dec({
+    this.#service.metrics.jobs.dec({
       service: this.#service.name,
       type: this.#job.type,
       state: 'queued',
     });
     // Decrement running job count
-    this.#service.metrics.dec({
+    this.#service.metrics.jobs.dec({
       service: this.#service.name,
       type: this.#job.type,
       state: 'running',
     });
 
     // Increment successes or failures based on status
-    this.#service.metrics.inc({
+    this.#service.metrics.jobs.inc({
       service: this.#service.name,
       type: this.#job.type,
       state: status,

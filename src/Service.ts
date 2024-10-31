@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
+import '@oada/pino-debug';
+import { Gauge, Histogram } from '@oada/lib-prom';
 import { type Logger, pino } from '@oada/pino-debug';
 
 import type { Config } from '@oada/client';
-import { Gauge } from '@oada/lib-prom';
 import { OADAClient } from '@oada/client';
 import { assert as assertQueue } from '@oada/types/oada/service/queue.js';
 
@@ -131,11 +132,40 @@ export class Service {
     this.token = this.#oada.getToken()[0]!;
     this.concurrency = object.concurrency ?? this.#oada.getConcurrency();
     // TODO: Get total pending jobs in collect callback?
-    this.metrics = new Gauge({
-      name: 'oada_jobs_total',
-      help: 'Number of OADA jobs',
-      labelNames: ['service', 'type', 'state'] as const,
-    });
+    this.metrics = {
+      'jobs': new Gauge({
+        name: 'oada_jobs_total',
+        help: 'Number of OADA jobs',
+        labelNames: ['service', 'type', 'state'] as const,
+      }),
+      'job-times': new Histogram({
+        name: 'job-times',
+        help: 'Histogram of job times',
+        labelNames: ['service', 'type', 'status'] as const,
+        buckets: [
+          1,           // 1 second
+          2,           // 2 seconds
+          4,           // 4 seconds
+          8,           // 8 seconds
+          16,          // 16 seconds
+          32,          // 32 seconds
+          64,          // 1.06 minutes
+          128,         // 2.13 minutes
+          256,         // 4.26 minutes
+          512,         // 8.53 minutes
+          1024,        // 17.07 minutes
+          2048,        // 34.13 minutes
+          4096,        // 1.14 hours
+          8192,        // 2.28 hours
+          16384,       // 4.55 hours
+          32768,       // 9.1 hours
+          65536,       // 18.2 hours
+          131072,      // 1.52 days
+          262144,      // 3.04 days
+          524288       // 6.08 days
+        ]
+      })
+    };
 
     if (object.opts) {
       this.opts = object.opts;
@@ -275,43 +305,4 @@ export class Service {
       this.log.debug('Unable to stop queue %0', error_);
     }
   }
-
-  /*
-  Async #initTotalMetrics(): Promise<void> {
-    const date = new Date().toISOString().split('T')[0];
-    for await (const status of ['success', 'failure']) {
-      try {
-        const { data } = await this.#oada.get({
-          path: `/bookmarks/services/${this.name}/jobs/${status}/day-index/${date}`,
-        });
-        const keys = Object.keys(data as Record<string, any>).filter(
-          (key) => !key.startsWith('_'),
-        );
-        this.metrics.set(keys.length);
-      } catch {
-        this.metrics.set(0);
-      }
-    }
-  }
-
-  async #initTypedMetrics(type: string): Promise<void> {
-    const mType = type.replaceAll('-', '_').replaceAll(' ', '_');
-    const date = new Date().toISOString().split('T')[0];
-    for await (const status of ['success', 'failure']) {
-      try {
-        this.metrics[`${this.name}_${status}_${mType}`].set(0);
-        const { data } = await this.#oada.get({
-          path: `/bookmarks/services/${this.name}/jobs/${status}/day-index/${date}`,
-        });
-        for await (const job of Object.keys(data as Record<string, any>)) {
-          const { data: index } = (await this.#oada.get({
-            path: `/bookmarks/services/${this.name}/jobs/${status}/day-index/${date}/${job}`,
-          })) as unknown as { data: { j: string; [k: string]: any } };
-          if (index.type === type)
-            this.metrics[`${this.name}_${status}_${mType}`].inc();
-        }
-      } catch {}
-    }
-  }
-  */
 }
