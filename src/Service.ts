@@ -139,7 +139,7 @@ export class Service {
         labelNames: ['service', 'type', 'state'] as const,
       }),
       'job-times': new Histogram({
-        name: 'job-times',
+        name: 'job_times',
         help: 'Histogram of job times',
         labelNames: ['service', 'type', 'status'] as const,
         buckets: [
@@ -163,8 +163,8 @@ export class Service {
           131072,      // 1.52 days
           262144,      // 3.04 days
           524288       // 6.08 days
-        ]
-      })
+        ],
+      }),
     };
 
     if (object.opts) {
