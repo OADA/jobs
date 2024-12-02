@@ -230,6 +230,49 @@ export class Service {
    */
   public on(type: string, timeout: number, work: WorkerFunction): void {
     this.#workers.set(type, { work, timeout });
+    // Initialize the jobs metrics
+    this.metrics.jobs.set(
+      {
+        service: this.name,
+        type,
+        state: 'queued',
+      },
+      0,
+    );
+    this.metrics.jobs.set(
+      {
+        service: this.name,
+        type,
+        state: 'running',
+      },
+      0,
+    );
+    this.metrics.jobs.set(
+      {
+        service: this.name,
+        type,
+        state: 'success',
+      },
+      0,
+    );
+    this.metrics.jobs.set(
+      {
+        service: this.name,
+        type,
+        state: 'failure',
+      },
+      0,
+    );
+    this.metrics['job-times'].zero({
+      service: this.name,
+      type,
+      status: 'success',
+    });
+    this.metrics['job-times'].zero({
+      service: this.name,
+      type,
+      status: 'failure',
+    });
   }
 
   /**
