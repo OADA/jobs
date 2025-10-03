@@ -147,7 +147,7 @@ export class Runner {
         ? this.finish("failure", err, dayjs(), "timeout")
         : err instanceof JobError
           ? this.finish("failure", err, dayjs(), err.JobError)
-          : this.finish("failure", err as Json, dayjs(), `${err}`));
+          : this.finish("failure", err as Json, dayjs()));
       const duration = performance.now() - this.#startTime!;
       this.#service.metrics["job-times"].observe(
         {
