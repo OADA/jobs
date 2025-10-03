@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-import '@oada/pino-debug';
-import { Gauge, Histogram } from '@oada/lib-prom';
-import { type Logger, pino } from '@oada/pino-debug';
+import "@oada/pino-debug";
 
-import type { Config } from '@oada/client';
-import { OADAClient } from '@oada/client';
-import { assert as assertQueue } from '@oada/types/oada/service/queue.js';
-
-import { Report, type ReportConstructor } from './Report.js';
-import { type Job } from './Job.js';
-import type { Json } from './index.js';
-import { Queue } from './Queue.js';
+import type { Config } from "@oada/client";
+import { OADAClient } from "@oada/client";
+import { Gauge, Histogram } from "@oada/lib-prom";
+import { type Logger, pino } from "@oada/pino-debug";
+import { assert as assertQueue } from "@oada/types/oada/service/queue.js";
+import type { Json } from "./index.js";
+import type { Job } from "./Job.js";
+import { Queue } from "./Queue.js";
+import { Report, type ReportConstructor } from "./Report.js";
 
 export type Domain = string;
 export type Type = string;
@@ -49,8 +48,8 @@ export interface Worker {
 }
 
 export interface FinishReporter {
-  type: 'slack'; // Add more over time
-  status: 'success' | 'failure';
+  type: "slack"; // Add more over time
+  status: "success" | "failure";
   posturl?: string;
 }
 export interface FinishReporters extends Array<FinishReporter> {}
@@ -66,7 +65,7 @@ export interface ConstructorArguments {
   log?: Logger;
 }
 
-export const defaultServiceQueueName = 'default-service-queue';
+export const defaultServiceQueueName = "default-service-queue";
 
 /**
  * Manages an @oada/jobs based service's queue endpoints. This Service class
@@ -111,12 +110,12 @@ export class Service {
       // @ts-expect-error instanceof OADAClient does not work
       object.oada?.getToken !== undefined
     ) {
-      this.log.debug('Using oada connection passed to constructor');
+      this.log.debug("Using oada connection passed to constructor");
       // @ts-expect-error instanceof OADAClient does not work
       this.#oada = object.oada;
     } else {
       this.log.debug(
-        'Opening OADA connection from domain/token that were passed'
+        "Opening OADA connection from domain/token that were passed",
       );
       try {
         // @ts-expect-error instanceof OADAClient does not work
@@ -133,36 +132,36 @@ export class Service {
     this.concurrency = object.concurrency ?? this.#oada.getConcurrency();
     // TODO: Get total pending jobs in collect callback?
     this.metrics = {
-      'jobs': new Gauge({
-        name: 'oada_jobs_total',
-        help: 'Number of OADA jobs',
-        labelNames: ['service', 'type', 'state'] as const,
+      jobs: new Gauge({
+        name: "oada_jobs_total",
+        help: "Number of OADA jobs",
+        labelNames: ["service", "type", "state"] as const,
       }),
-      'job-times': new Histogram({
-        name: 'job_times',
-        help: 'Histogram of job times',
-        labelNames: ['service', 'type', 'status'] as const,
+      "job-times": new Histogram({
+        name: "job_times",
+        help: "Histogram of job times",
+        labelNames: ["service", "type", "status"] as const,
         buckets: [
-          1,           // 1 second
-          2,           // 2 seconds
-          4,           // 4 seconds
-          8,           // 8 seconds
-          16,          // 16 seconds
-          32,          // 32 seconds
-          64,          // 1.06 minutes
-          128,         // 2.13 minutes
-          256,         // 4.26 minutes
-          512,         // 8.53 minutes
-          1024,        // 17.07 minutes
-          2048,        // 34.13 minutes
-          4096,        // 1.14 hours
-          8192,        // 2.28 hours
-          16384,       // 4.55 hours
-          32768,       // 9.1 hours
-          65536,       // 18.2 hours
-          131072,      // 1.52 days
-          262144,      // 3.04 days
-          524288       // 6.08 days
+          1, // 1 second
+          2, // 2 seconds
+          4, // 4 seconds
+          8, // 8 seconds
+          16, // 16 seconds
+          32, // 32 seconds
+          64, // 1.06 minutes
+          128, // 2.13 minutes
+          256, // 4.26 minutes
+          512, // 8.53 minutes
+          1024, // 17.07 minutes
+          2048, // 34.13 minutes
+          4096, // 1.14 hours
+          8192, // 2.28 hours
+          16384, // 4.55 hours
+          32768, // 9.1 hours
+          65536, // 18.2 hours
+          131072, // 1.52 days
+          262144, // 3.04 days
+          524288, // 6.08 days
         ],
       }),
     };
@@ -175,7 +174,7 @@ export class Service {
   /**
    * Add a report to the service. See ReportConstructor for parameters.
    */
-  public addReport(rc: Omit<ReportConstructor, 'service'>) {
+  public addReport(rc: Omit<ReportConstructor, "service">) {
     const report = new Report({
       ...rc,
       service: this,
@@ -196,7 +195,7 @@ export class Service {
    * Start the service -- start and manage the configured queue
    */
   get #watchRequestId() {
-    return '';
+    return "";
   }
 
   public async start(): Promise<void> {
@@ -235,7 +234,7 @@ export class Service {
       {
         service: this.name,
         type,
-        state: 'queued',
+        state: "queued",
       },
       0,
     );
@@ -243,7 +242,7 @@ export class Service {
       {
         service: this.name,
         type,
-        state: 'running',
+        state: "running",
       },
       0,
     );
@@ -251,7 +250,7 @@ export class Service {
       {
         service: this.name,
         type,
-        state: 'success',
+        state: "success",
       },
       0,
     );
@@ -259,19 +258,19 @@ export class Service {
       {
         service: this.name,
         type,
-        state: 'failure',
+        state: "failure",
       },
       0,
     );
-    this.metrics['job-times'].zero({
+    this.metrics["job-times"].zero({
       service: this.name,
       type,
-      status: 'success',
+      status: "success",
     });
-    this.metrics['job-times'].zero({
+    this.metrics["job-times"].zero({
       service: this.name,
       type,
-      status: 'failure',
+      status: "failure",
     });
   }
 
@@ -291,7 +290,7 @@ export class Service {
     const worker = this.#workers.get(type);
 
     if (!worker) {
-      this.log.error('No worker registered for %s', type);
+      this.log.error("No worker registered for %s", type);
       throw new Error(`No worker registered for ${type}`);
     }
 
@@ -334,8 +333,8 @@ export class Service {
       await queue.start(this.opts?.skipQueueOnStartup);
       this.#queue = queue;
     } catch (error_) {
-      this.log.warn('Invalid queue');
-      this.log.debug('Invalid queue: %O', error_);
+      this.log.warn("Invalid queue");
+      this.log.debug("Invalid queue: %O", error_);
       this.log.error(error_);
     }
   }
@@ -344,8 +343,8 @@ export class Service {
     try {
       await this.#queue?.stop();
     } catch (error_) {
-      this.log.warn('Unable to stop queues');
-      this.log.debug('Unable to stop queue %0', error_);
+      this.log.warn("Unable to stop queues");
+      this.log.debug("Unable to stop queue %0", error_);
     }
   }
 }

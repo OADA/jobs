@@ -15,34 +15,37 @@
  * limitations under the License.
  */
 
-import { type Json, Service } from '../dist/index.js';
-import { type JsonObject, type OADAClient, connect, doJob } from '@oada/client';
-import { domain, token } from './config.js';
-import type EmailJob from '@oada/types/trellis/service/abalonemail/email.js';
-import debug from 'debug';
-import moment from 'moment';
-import { postJob } from './utils.js';
-import { setTimeout } from 'node:timers/promises';
-import test from 'ava';
-import { parseAttachment } from '../dist/Report.js';
+import { setTimeout } from "node:timers/promises";
 
-const trace = debug('all.test.ts:trace');
-const error = debug('all.test.ts:error');
+import { connect, type JsonObject, type OADAClient } from "@oada/client";
+import { doJob } from "@oada/client/jobs";
+import type EmailJob from "@oada/types/trellis/service/abalonemail/email.js";
+import test from "ava";
+import dayjs from "dayjs";
+import debug from "debug";
 
-const name = 'JOBSTEST';
+import { type Json, Service } from "../dist/index.js";
+import { parseAttachment } from "../dist/Report.js";
+import { domain, token } from "./config.js";
+import { postJob } from "./utils.js";
+
+const trace = debug("all.test.ts:trace");
+const error = debug("all.test.ts:error");
+
+const name = "JOBSTEST";
 const root = `/bookmarks/services/${name}`;
 const pending = `/bookmarks/services/${name}/jobs/pending`;
-const reportname = 'test-report';
+const reportname = "test-report";
 const reportPath = `bookmarks/services/${name}/jobs/reports/${reportname}`;
 const successJobs = `bookmarks/services/abalonemail/jobs/success/day-index`;
 const successjob = {
   service: name,
-  type: 'basic',
-  config: { result: 'success', first: 'abc', second: 'def' },
+  type: "basic",
+  config: { result: "success", first: "abc", second: "def" },
 };
 const failjob = {
   ...successjob,
-  config: { result: 'fail', first: 'aaa', second: 'bbb' },
+  config: { result: "fail", first: "aaa", second: "bbb" },
 };
 const jobwaittime = 7000; // Ms to wait for job to complete, tune to your oada response time
 let reportTime: any;
@@ -57,27 +60,27 @@ test.before(async () => {
   });
 
   // Start the service
-  trace('before: starting service ', name);
+  trace("before: starting service ", name);
   svc = new Service({
     name,
     oada,
   });
   // Register a default job handler
-  svc.on('basic', 1000, async (job) => {
-    trace('received job, job.config = ', job?.config);
+  svc.on("basic", 1000, async (job) => {
+    trace("received job, job.config = ", job?.config);
     if (!job?.config) {
-      error('There is no config on the job.');
-      throw new Error('job.config does not exist');
+      error("There is no config on the job.");
+      throw new Error("job.config does not exist");
     }
 
     const { result } = job.config as any;
     switch (result) {
-      case 'success': {
+      case "success": {
         return { success: true } as Json;
       }
 
-      case 'fail': {
-        throw new Error('config.result is fail');
+      case "fail": {
+        throw new Error("config.result is fail");
       }
 
       default: {
@@ -87,7 +90,7 @@ test.before(async () => {
   });
   // Get the current time and set it to execute on the Xth minute of the Yth hour
   // such that it happens in one minute from now
-  reportTime = moment().add(1, 'minute');
+  reportTime = dayjs().add(1, "minute");
   const min = reportTime.minute();
   const hr = reportTime.hour();
   const s = reportTime.second();
@@ -95,37 +98,37 @@ test.before(async () => {
     name: reportname,
     reportConfig: {
       jobMappings: {
-        'Column One': '/config/first',
-        'Column Two': '/config/second',
-        'Status': 'errorMappings',
+        "Column One": "/config/first",
+        "Column Two": "/config/second",
+        Status: "errorMappings",
       },
       errorMappings: {
-        'unknown': 'Other Error',
-        'success': 'Success',
-        'custom-test': 'Another Error',
+        unknown: "Other Error",
+        success: "Success",
+        "custom-test": "Another Error",
       },
     },
     frequency: `${s} ${min} ${hr} * * *`,
     email() {
-      const date = moment().format('YYYY-MM-DD');
+      const date = dayjs().format("YYYY-MM-DD");
       return {
-        from: 'noreply@trellis.one',
+        from: "noreply@trellis.one",
         to: {
-          name: 'Test Email',
-          email: 'sn@centricity.us',
+          name: "Test Email",
+          email: "sn@centricity.us",
         },
         subject: `Test Email - ${date}`,
         text: `Attached is the Test Report for the test service jobs processed on ${date}`,
         attachments: [
           {
             filename: `TestReport-${date}.csv`,
-            type: 'text/csv',
-            content: '',
+            type: "text/csv",
+            content: "",
           },
         ],
       };
     },
-    type: 'basic',
+    type: "basic",
   });
 
   await svc.start();
@@ -142,7 +145,7 @@ test.afterEach(async () => {
   const { data: jobs } = (await oada.get({
     path: `/bookmarks/services/abalonemail/jobs/pending`,
   })) as unknown as { data: Record<string, any> };
-  const keys = Object.keys(jobs).filter((key) => !key.startsWith('_'));
+  const keys = Object.keys(jobs).filter((key) => !key.startsWith("_"));
   for await (const key of keys) {
     await oada.delete({
       path: `/bookmarks/services/abalonemail/jobs/pending/${key}`,
@@ -150,7 +153,7 @@ test.afterEach(async () => {
   }
 });
 
-test('Should make a report entry when a job is added to the failure index', async (t) => {
+test("Should make a report entry when a job is added to the failure index", async (t) => {
   t.timeout(30_000);
   const { key } = await postJob(oada, pending, failjob);
   await setTimeout(12_000);
@@ -162,7 +165,7 @@ test('Should make a report entry when a job is added to the failure index', asyn
     .catch((error_) => error_.status === 404);
   t.true(jobisgone);
 
-  const date = moment().format('YYYY-MM-DD');
+  const date = dayjs().format("YYYY-MM-DD");
   const report = await oada
     .get({
       path: `${reportPath}/day-index/${date}/${key}`,
@@ -171,13 +174,13 @@ test('Should make a report entry when a job is added to the failure index', asyn
     .catch(() => false);
   t.truthy(report);
   t.deepEqual(report, {
-    'Status': 'Other Error',
-    'Column One': 'aaa',
-    'Column Two': 'bbb',
+    Status: "Other Error",
+    "Column One": "aaa",
+    "Column Two": "bbb",
   });
 });
 
-test('Should make a report entry when a job is added to the success index', async (t) => {
+test("Should make a report entry when a job is added to the success index", async (t) => {
   t.timeout(20_000);
   const { key } = await postJob(oada, pending, successjob);
   await setTimeout(jobwaittime);
@@ -189,7 +192,7 @@ test('Should make a report entry when a job is added to the success index', asyn
     .catch((error_) => error_.status === 404);
   t.true(jobisgone);
 
-  const date = moment().format('YYYY-MM-DD');
+  const date = dayjs().format("YYYY-MM-DD");
   const report = await oada
     .get({
       path: `${reportPath}/day-index/${date}/${key}`,
@@ -198,15 +201,15 @@ test('Should make a report entry when a job is added to the success index', asyn
     .catch(() => false);
   t.truthy(report);
   t.deepEqual(report, {
-    'Status': 'Success',
-    'Column One': 'abc',
-    'Column Two': 'def',
+    Status: "Success",
+    "Column One": "abc",
+    "Column Two": "def",
   });
 });
 
-test('Should post a job to abalonemail when it is time to report', async (t) => {
+test("Should post a job to abalonemail when it is time to report", async (t) => {
   t.timeout(75_000);
-  const date = moment().format('YYYY-MM-DD');
+  const date = dayjs().format("YYYY-MM-DD");
   const wait = reportTime - Date.now();
   await setTimeout(wait > 0 ? wait + 5000 : 0);
 
@@ -215,7 +218,7 @@ test('Should post a job to abalonemail when it is time to report', async (t) => 
   })) as unknown as { data: JsonObject };
   t.truthy(result);
 
-  let keys = Object.keys(result).filter((key) => !key.startsWith('_'));
+  let keys = Object.keys(result).filter((key) => !key.startsWith("_"));
 
   keys = keys.sort();
   t.true(keys.length > 0);
@@ -223,21 +226,21 @@ test('Should post a job to abalonemail when it is time to report', async (t) => 
   const { data: email } = (await oada.get({
     path: `${successJobs}/${date}/${keys.at(-1)}`,
   })) as unknown as { data: EmailJob };
-  t.is(email.config.from, 'noreply@trellis.one');
+  t.is(email.config.from, "noreply@trellis.one");
   t.is(email.config.subject, `Test Email - ${date}`);
   t.truthy(email.config.attachments?.[0]);
-  t.not(email.config.attachments?.[0]?.content, '');
+  t.not(email.config.attachments?.[0]?.content, "");
 });
 
 // TODO: needs finished
-test.skip('Should produce non-overlapping times (and results) in each report', async (t) => {
+test.skip("Should produce non-overlapping times (and results) in each report", async (t) => {
   t.timeout(75_000);
   await setTimeout(5000);
 });
 
-test.only('parseAttachments should be able to reconstruct the csv object', async (t) => {
+test.only("parseAttachments should be able to reconstruct the csv object", async (t) => {
   t.timeout(75_000);
-  const thisReportName = 'this-test-report';
+  const thisReportName = "this-test-report";
 
   const wait = 25;
   const dt = new Date();
@@ -246,37 +249,37 @@ test.only('parseAttachments should be able to reconstruct the csv object', async
     name: thisReportName,
     reportConfig: {
       jobMappings: {
-        'Column One': '/config/first',
-        'Column Two': '/config/second',
-        'Status': 'errorMappings',
+        "Column One": "/config/first",
+        "Column Two": "/config/second",
+        Status: "errorMappings",
       },
       errorMappings: {
-        'unknown': 'Other Error',
-        'success': 'Success',
-        'custom-test': 'Another Error',
+        unknown: "Other Error",
+        success: "Success",
+        "custom-test": "Another Error",
       },
     },
     frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
     email() {
-      const date = moment().format('YYYY-MM-DD');
+      const date = dayjs().format("YYYY-MM-DD");
       return {
-        from: 'noreply@trellis.one',
+        from: "noreply@trellis.one",
         to: {
-          name: 'Test Email',
-          email: 'sn@centricity.us',
+          name: "Test Email",
+          email: "sn@centricity.us",
         },
         subject: `Test Email - ${date}`,
         text: `Attached is the Test Report for the test service jobs processed on ${date}`,
         attachments: [
           {
             filename: `TestReport-${date}.csv`,
-            type: 'text/csv',
-            content: '',
+            type: "text/csv",
+            content: "",
           },
         ],
       };
     },
-    type: 'basic',
+    type: "basic",
   });
   await svc.start();
 
@@ -288,7 +291,7 @@ test.only('parseAttachments should be able to reconstruct the csv object', async
   })) as unknown as { data: JsonObject };
   t.truthy(result);
   const keys = Object.keys(result)
-    .filter((key) => !key.startsWith('_'))
+    .filter((key) => !key.startsWith("_"))
     .sort();
   t.assert(keys.length > 0);
   const key = keys[0];
@@ -298,14 +301,14 @@ test.only('parseAttachments should be able to reconstruct the csv object', async
   })) as unknown as { data: any };
 
   const tableData = parseAttachment(content) as any;
-  t.assert(tableData[0]['Column One']);
-  t.assert(tableData[0]['Column Two']);
+  t.assert(tableData[0]["Column One"]);
+  t.assert(tableData[0]["Column Two"]);
   t.assert(tableData[0].Status);
 });
 
-test.skip('Should not generate an abalonemail job when the report data is empty', async (t) => {
+test.skip("Should not generate an abalonemail job when the report data is empty", async (t) => {
   t.timeout(75_000);
-  const thisReportName = 'this-test-report';
+  const thisReportName = "this-test-report";
 
   const wait = 3;
   const dt = new Date();
@@ -314,37 +317,37 @@ test.skip('Should not generate an abalonemail job when the report data is empty'
     name: thisReportName,
     reportConfig: {
       jobMappings: {
-        'Column One': '/config/first',
-        'Column Two': '/config/second',
-        'Status': 'errorMappings',
+        "Column One": "/config/first",
+        "Column Two": "/config/second",
+        Status: "errorMappings",
       },
       errorMappings: {
-        'unknown': 'Other Error',
-        'success': 'Success',
-        'custom-test': 'Another Error',
+        unknown: "Other Error",
+        success: "Success",
+        "custom-test": "Another Error",
       },
     },
     frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
     email() {
-      const date = moment().format('YYYY-MM-DD');
+      const date = dayjs().format("YYYY-MM-DD");
       return {
-        from: 'noreply@trellis.one',
+        from: "noreply@trellis.one",
         to: {
-          name: 'Test Email',
-          email: 'sn@centricity.us',
+          name: "Test Email",
+          email: "sn@centricity.us",
         },
         subject: `Test Email - ${date}`,
         text: `Attached is the Test Report for the test service jobs processed on ${date}`,
         attachments: [
           {
             filename: `TestReport-${date}.csv`,
-            type: 'text/csv',
-            content: '',
+            type: "text/csv",
+            content: "",
           },
         ],
       };
     },
-    type: 'basic',
+    type: "basic",
   });
 
   // Don't do any jobs. This should create no attachment content
@@ -355,14 +358,14 @@ test.skip('Should not generate an abalonemail job when the report data is empty'
   })) as unknown as { data: JsonObject };
   t.truthy(result);
   const keys = Object.keys(result)
-    .filter((key) => !key.startsWith('_'))
+    .filter((key) => !key.startsWith("_"))
     .sort();
   t.true(keys.length === 0);
 });
 
-test.skip('Should generate an abalonemail job when the report data is empty and sendEmpty is true', async (t) => {
+test.skip("Should generate an abalonemail job when the report data is empty and sendEmpty is true", async (t) => {
   t.timeout(75_000);
-  const thisReportName = 'this-test-report';
+  const thisReportName = "this-test-report";
 
   const wait = 3;
   const dt = new Date();
@@ -372,37 +375,37 @@ test.skip('Should generate an abalonemail job when the report data is empty and 
     sendEmpty: true,
     reportConfig: {
       jobMappings: {
-        'Column One': '/config/first',
-        'Column Two': '/config/second',
-        'Status': 'errorMappings',
+        "Column One": "/config/first",
+        "Column Two": "/config/second",
+        Status: "errorMappings",
       },
       errorMappings: {
-        'unknown': 'Other Error',
-        'success': 'Success',
-        'custom-test': 'Another Error',
+        unknown: "Other Error",
+        success: "Success",
+        "custom-test": "Another Error",
       },
     },
     frequency: `${dt.getSeconds()} ${dt.getMinutes()} ${dt.getHours()} * * ${dt.getDay()}`,
     email() {
-      const date = moment().format('YYYY-MM-DD');
+      const date = dayjs().format("YYYY-MM-DD");
       return {
-        from: 'noreply@trellis.one',
+        from: "noreply@trellis.one",
         to: {
-          name: 'Test Email',
-          email: 'sn@centricity.us',
+          name: "Test Email",
+          email: "sn@centricity.us",
         },
         subject: `Test Email - ${date}`,
         text: `Attached is the Test Report for the test service jobs processed on ${date}`,
         attachments: [
           {
             filename: `TestReport-${date}.csv`,
-            type: 'text/csv',
-            content: '',
+            type: "text/csv",
+            content: "",
           },
         ],
       };
     },
-    type: 'basic',
+    type: "basic",
   });
 
   // Don't do any jobs. This should create no attachment content
@@ -413,7 +416,7 @@ test.skip('Should generate an abalonemail job when the report data is empty and 
   })) as unknown as { data: JsonObject };
   t.truthy(result);
   const keys = Object.keys(result)
-    .filter((key) => !key.startsWith('_'))
+    .filter((key) => !key.startsWith("_"))
     .sort();
   t.true(keys.length > 0);
 });

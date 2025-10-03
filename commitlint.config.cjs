@@ -18,7 +18,7 @@
 /* eslint-disable import/no-commonjs */
 
 const config = {
-  extends: ['@commitlint/config-conventional'],
+  extends: ["@commitlint/config-conventional"],
 };
 
 module.exports = config;

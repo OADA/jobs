@@ -14,28 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import '@oada/pino-debug';
-import PQueue from 'p-queue';
-import moment from 'moment';
+import "@oada/pino-debug";
+import type { OADAClient } from "@oada/client";
+import type OADAJobs from "@oada/types/oada/service/jobs.js";
+import type OADAJobsChange from "@oada/types/oada/service/jobs-change.js";
+import type { Link } from "@oada/types/oada.js";
+import dayjs from "dayjs";
+import PQueue from "p-queue";
 
-import type { Link } from '@oada/types/oada.js';
-import type { OADAClient } from '@oada/client';
-import type OADAJobs from '@oada/types/oada/service/jobs.js';
-import type OADAJobsChange from '@oada/types/oada/service/jobs-change.js';
 // TODO: Fix this type and get it back in here
 // import { assert as assertJobs } from '@oada/types/oada/service/jobs-change.js';
 
-import { error, info, stripResource, trace } from './utils.js';
-import { Job } from './Job.js';
-import { Runner } from './Runner.js';
-import type { Service } from './Service.js';
-import { tree } from './tree.js';
+import { Job } from "./Job.js";
+import { Runner } from "./Runner.js";
+import type { Service } from "./Service.js";
+import { tree } from "./tree.js";
+import { error, info, stripResource, trace } from "./utils.js";
 
 /**
  * Manages watching of a particular job queue
  */
 export class Queue {
-  #watchRequestId: string | string[] = '';
+  #watchRequestId: string | string[] = "";
   readonly #oada: OADAClient;
   readonly #queue: PQueue;
   readonly #service;
@@ -95,16 +95,16 @@ export class Queue {
       const watchopts: { path: string; rev?: number } = { path: jobspath };
       if (
         r?.data &&
-        typeof r.data === 'object' &&
-        '_rev' in r.data &&
-        typeof r.data._rev === 'number'
+        typeof r.data === "object" &&
+        "_rev" in r.data &&
+        typeof r.data._rev === "number"
       ) {
         trace(
-          '[QueueId ',
+          "[QueueId ",
           this._id,
-          '] Initial jobs list at rev',
+          "] Initial jobs list at rev",
           r.data._rev,
-          ', starting watch from that point',
+          ", starting watch from that point",
         );
         watchopts.rev = r.data._rev;
       }
@@ -115,26 +115,26 @@ export class Queue {
       // Wrap for..await in async function that we do not "await";
       (async () => {
         for await (const change of changes) {
-          trace('[QueueId %s] received change: ', this._id, change);
-          if (change.type !== 'merge') continue;
+          trace("[QueueId %s] received change: ", this._id, change);
+          if (change.type !== "merge") continue;
 
           // Catch error in callback to avoid nodejs crash on error
           try {
             const jobs = stripResource(change.body);
             // AssertJobs(jobs);
             trace(
-              '[QueueId %s] jobs found in change:',
+              "[QueueId %s] jobs found in change:",
               this._id,
               Object.keys(jobs),
             );
             await this.#doJobs(jobs as OADAJobsChange);
           } catch (error_: unknown) {
-            trace(error_, 'The change was not a `Jobs`');
+            trace(error_, "The change was not a `Jobs`");
             // Shouldn't it fail the job?
           }
         }
 
-        error('***ERROR***: the for...await looking for changes has exited');
+        error("***ERROR***: the for...await looking for changes has exited");
       })();
 
       info(`[QueueId ${this._id}] Started WATCH.`);
@@ -144,7 +144,7 @@ export class Queue {
       const jobs = stripResource(r.data as Record<string, unknown>);
 
       if (skipQueue) {
-        info('Skipping existing jobs in the queue prior to startup.');
+        info("Skipping existing jobs in the queue prior to startup.");
       } else {
         // AssertJobs(jobs);
         await this.#doJobs(jobs as OADAJobs);
@@ -168,14 +168,14 @@ export class Queue {
     // Stop all our watches:
     await Promise.all(
       array.map(async (requestId) => {
-        if (requestId === '') {
+        if (requestId === "") {
           return;
         }
 
         return this.#oada.unwatch(requestId);
       }),
     );
-    this.#watchRequestId = '';
+    this.#watchRequestId = "";
   }
 
   /**
@@ -192,7 +192,7 @@ export class Queue {
       this.#service.metrics.jobs.inc({
         service: this.#service.name,
         type: job.type,
-        state: 'queued',
+        state: "queued",
       });
 
       void this.#queue.add(async () => {
@@ -200,7 +200,7 @@ export class Queue {
         const runner = new Runner(this.#service, jobKey, job, this.#oada);
 
         if (!isJob) {
-          await runner.finish('failure', {}, moment());
+          await runner.finish("failure", {}, dayjs());
         }
 
         trace(`[QueueId: ${this._id}] Starting runner for ${jobKey}`);

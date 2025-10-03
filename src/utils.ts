@@ -14,18 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import '@oada/pino-debug';
-import _debug from 'debug';
+import "@oada/pino-debug";
 
-import type { ConnectionResponse, Json, OADAClient } from '@oada/client';
+import type { ConnectionResponse, Json, OADAClient } from "@oada/client";
+import _debug from "debug";
 
-import { tree } from './tree.js';
+import { tree } from "./tree.js";
 
-export const error = _debug('oada-jobs:connection:error');
-export const info = _debug('oada-jobs:connection:info');
-export const warn = _debug('oada-jobs:connection:warn');
-export const debug = _debug('oada-jobs:connection:debug');
-export const trace = _debug('oada-jobs:connection:trace');
+export const error = _debug("oada-jobs:connection:error");
+export const info = _debug("oada-jobs:connection:info");
+export const warn = _debug("oada-jobs:connection:warn");
+export const debug = _debug("oada-jobs:connection:debug");
+export const trace = _debug("oada-jobs:connection:trace");
 
 // Dealing with OADA's `_` keys ... is ... frustrating
 export function stripResource<T extends Record<string, unknown>>({
@@ -52,9 +52,9 @@ export async function deleteResourceAndLinkIfExists(
 }
 
 export function keyFromLocation(r: ConnectionResponse) {
-  const loc = r?.headers['content-location'];
-  if (!loc || typeof loc !== 'string') return '';
-  return loc.replace(/^\/resources\/[^/]+\//, '');
+  const loc = r?.headers["content-location"];
+  if (!loc || typeof loc !== "string") return "";
+  return loc.replace(/^\/resources\/[^/]+\//, "");
 }
 
 export async function postJob(
@@ -65,18 +65,18 @@ export async function postJob(
   // 1:Create a resource for the job and keep resourceId to return
   const _id = await oada
     .post({
-      path: '/resources',
+      path: "/resources",
       data: job as unknown as Json,
-      contentType: tree.bookmarks.services['*'].jobs.pending._type,
+      contentType: tree.bookmarks.services["*"].jobs.pending._type,
     })
-    .then((r) => r.headers['content-location']?.replace(/^\//, '') ?? ''); // Get rid of leading slash for link
+    .then((r) => r.headers["content-location"]?.replace(/^\//, "") ?? ""); // Get rid of leading slash for link
 
   // 2: Now post a link to that job
-  const key = _id.replace(/^resources\//, '');
+  const key = _id.replace(/^resources\//, "");
   await oada.put({
     path: `${path}/${key}`,
     data: { _id },
-    contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
+    contentType: tree.bookmarks.services["*"].jobs.pending["*"]._type,
   });
 
   return { _id, key };
@@ -97,7 +97,7 @@ export async function postUpdate(
     await oada.post({
       path: `/${oadaId}/updates`,
       // Since we aren't using tree, we HAVE to set the content type or permissions fail
-      contentType: tree.bookmarks.services['*'].jobs.pending['*']._type,
+      contentType: tree.bookmarks.services["*"].jobs.pending["*"]._type,
       data: {
         status,
         time: new Date().toISOString(),

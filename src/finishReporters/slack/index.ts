@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-import { error, info } from '../../utils.js';
-import tiny from 'tiny-json-http'; // For finishReporters
-
-import type { FinishReporter, Job, Service } from '../.././index.js';
+import tiny from "tiny-json-http"; // For finishReporters
+import type { FinishReporter, Job, Service } from "../.././index.js";
+import { error, info } from "../../utils.js";
 
 interface FinishParameters {
   config: FinishReporter;
@@ -31,27 +30,27 @@ interface FinishParameters {
 
 export async function onFinish(p: FinishParameters): Promise<void> {
   let { domain } = p.service;
-  if (!domain.startsWith('http')) {
+  if (!domain.startsWith("http")) {
     domain = `https://${domain}`;
   }
 
   const message = {
     blocks: [
       {
-        type: 'section',
+        type: "section",
         text: {
-          type: 'mrkdwn',
+          type: "mrkdwn",
           text: `Service *${p.job.service}* on Domain *${domain}* failed jobId *${p.jobId}*`,
         },
       },
       {
-        type: 'divider',
+        type: "divider",
       },
       {
-        type: 'section',
-        block_id: 'section567',
+        type: "section",
+        block_id: "section567",
         text: {
-          type: 'mrkdwn',
+          type: "mrkdwn",
           text: `<${domain}${p.finalpath}>`,
         },
       },
@@ -61,10 +60,10 @@ export async function onFinish(p: FinishParameters): Promise<void> {
         blocks: [
           // Doing the code in an "attachement" makes it "secondary" and therefore collapsed by default
           {
-            type: 'section',
+            type: "section",
             text: {
-              type: 'mrkdwn',
-              text: `\`\`\`${JSON.stringify(p.job, undefined, '  ')}\`\`\``,
+              type: "mrkdwn",
+              text: `\`\`\`${JSON.stringify(p.job, undefined, "  ")}\`\`\``,
             },
           },
         ],
@@ -74,7 +73,7 @@ export async function onFinish(p: FinishParameters): Promise<void> {
 
   if (!p.config.posturl) {
     error(
-      'finishReporters#slack: Slack requires a posturl and you did not pass one',
+      "finishReporters#slack: Slack requires a posturl and you did not pass one",
     );
     return;
   }
@@ -83,16 +82,16 @@ export async function onFinish(p: FinishParameters): Promise<void> {
     await tiny.post({
       url: p.config.posturl,
       data: message,
-      headers: { 'content-type': 'application/json' },
+      headers: { "content-type": "application/json" },
     });
     info(
-      'Successfully posted message to slack about job with status %s',
+      "Successfully posted message to slack about job with status %s",
       p.status,
     );
   } catch (error_: unknown) {
     error(
       error_,
-      'finishReporters#slack: ERROR: failed to post message to slack!',
+      "finishReporters#slack: ERROR: failed to post message to slack!",
     );
   }
 }

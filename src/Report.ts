@@ -14,30 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import '@oada/pino-debug';
-import { CronJob } from 'cron';
-import clone from 'clone-deep';
-import debug from 'debug';
-import jp from 'json-pointer';
-import ksuid from 'ksuid';
-import moment from 'moment';
-import xlsx from 'xlsx';
 
+import "@oada/pino-debug";
+
+import type { JsonObject, OADAClient } from "@oada/client";
 // Import type { Job } from '@oada/jobs';
-import { AssumeState, ChangeType, ListWatch } from '@oada/list-lib';
-import type { JsonObject, OADAClient } from '@oada/client';
-import type EmailConfig from '@oada/types/trellis/service/abalonemail/config/email.js';
-import type Job from '@oada/types/oada/service/job.js';
-import type Tree from '@oada/types/oada/tree/v1.js';
+import { AssumeState, ChangeType, ListWatch } from "@oada/list-lib";
+import type Job from "@oada/types/oada/service/job.js";
+import type Tree from "@oada/types/oada/tree/v1.js";
+import type EmailConfig from "@oada/types/trellis/service/abalonemail/config/email.js";
+import { CronJob } from "cron";
+import dayjs from "dayjs";
+import debug from "debug";
+import jp from "json-pointer";
+import * as xksuid from "xksuid";
+import xlsx from "xlsx";
 
-import type { Service } from './Service.js';
-import { tree } from './tree.js';
+import type { Service } from "./Service.js";
+import { tree } from "./tree.js";
+
 // Const error = debug('oada-jobs:connection:error');
-const info = debug('oada-jobs:connection:info');
+const info = debug("oada-jobs:connection:info");
 // Const warn = debug('oada-jobs:connection:warn');
-const trace = debug('oada-jobs:connection:trace');
+const trace = debug("oada-jobs:connection:trace");
 
-const EMAIL_SVC = 'abalonemail';
+const EMAIL_SVC = "abalonemail";
 
 export interface ReportConstructor {
   name: string;
@@ -96,13 +97,13 @@ export class Report {
       // eslint-disable-next-line unicorn/no-null
       null,
       true,
-      'America/New_York',
+      "America/New_York",
       this,
     );
     const interval: number =
       (this.mailer.nextDates(2) as any)[1].ts -
       (this.mailer.nextDates(1) as any)[0].ts;
-    this.lastCron = moment(
+    this.lastCron = dayjs(
       (this.mailer.nextDates(1) as any)[0] - interval,
     ).format();
     info(
@@ -119,7 +120,7 @@ export class Report {
   ) {
     const emailJob = {
       service: EMAIL_SVC,
-      type: 'email',
+      type: "email",
       config: ecs ?? this.email(),
     };
 
@@ -135,14 +136,14 @@ export class Report {
 
     // Queue the job to send the email
     const {
-      headers: { 'content-location': location },
+      headers: { "content-location": location },
     } = await this.oada.post({
       path: `/resources`,
       data: emailJob as JsonObject,
     });
 
     if (!location) return;
-    const id = location.replace(/^\/resources\//, '');
+    const id = location.replace(/^\/resources\//, "");
     await this.oada.put({
       path: `/bookmarks/services/${EMAIL_SVC}/jobs/pending`,
       data: {
@@ -162,8 +163,8 @@ export class Report {
 
   public start() {
     this.mailer.start();
-    const serviceTree = clone(tree);
-    const star: Tree = jp.get(tree, '/bookmarks/services/*') as Tree;
+    const serviceTree = structuredClone(tree);
+    const star: Tree = jp.get(tree, "/bookmarks/services/*") as Tree;
     jp.set(serviceTree, `/bookmarks/services/${this.service.name}`, star);
 
     this.listWatchFailures = new ListWatch({
@@ -249,17 +250,17 @@ export class Report {
     for (const [colName, pointer] of Object.entries(
       report.reportConfig.jobMappings,
     )) {
-      if (pointer === 'errorMappings') {
+      if (pointer === "errorMappings") {
         data[colName] = errorType
-          ? (report.reportConfig.errorMappings[errorType] ?? 'Other Error')
-          : 'Success';
+          ? (report.reportConfig.errorMappings[errorType] ?? "Other Error")
+          : "Success";
       }
     }
 
     for (const [colName, pointer] of Object.entries(
       report.reportConfig.jobMappings,
-    ).filter(([_, pointer]) => pointer !== 'errorMappings')) {
-      data[colName] = jp.has(job, pointer) ? jp.get(job, pointer) : '';
+    ).filter(([_, pointer]) => pointer !== "errorMappings")) {
+      data[colName] = jp.has(job, pointer) ? jp.get(job, pointer) : "";
     }
 
     await report.oada.put({
@@ -274,22 +275,22 @@ export class Report {
   async #getAttachment(lastDate?: string, startDate?: string) {
     const records = await this.#gatherReportRecords(lastDate, startDate);
     const sheet = xlsx.utils.sheet_to_csv(xlsx.utils.json_to_sheet(records));
-    return Buffer.from(sheet, 'utf8').toString('base64');
+    return Buffer.from(sheet, "utf8").toString("base64");
   }
 
   /**
    * Function to gather the row entries to construct the csv
    */
   async #gatherReportRecords(lastDate?: string, lastCron?: string) {
-    const endTime = moment(lastDate ?? this.mailer.lastDate());
+    const endTime = dayjs(lastDate ?? this.mailer.lastDate());
     // Iterate over the day-index
-    const startTime = moment(lastCron ?? this.lastCron);
-    const currentDate = moment(startTime.format('YYYY-MM-DD'));
+    const startTime = dayjs(lastCron ?? this.lastCron);
+    const currentDate = dayjs(startTime.format("YYYY-MM-DD"));
     const records = [];
-    const endDate = moment(endTime.format('YYYY-MM-DD'));
-    const midnight = moment(endTime.format('YYYY-MM-DD')).add(1, 'day'); // Midnight the next day is the end of the window for previous date
+    const endDate = dayjs(endTime.format("YYYY-MM-DD"));
+    const midnight = dayjs(endTime.format("YYYY-MM-DD")).add(1, "day"); // Midnight the next day is the end of the window for previous date
     while (currentDate <= endDate) {
-      const date = currentDate.format('YYYY-MM-DD');
+      const date = currentDate.format("YYYY-MM-DD");
 
       let day: ReportRecords;
       try {
@@ -308,17 +309,17 @@ export class Report {
 
       // Remove oada keys, filter by time (key)
       const items = Object.keys(day)
-        .filter((key) => !key.startsWith('_'))
-        .filter((key) => moment(ksuid.parse(key).date) < midnight)
+        .filter((key) => !key.startsWith("_"))
+        .filter((key) => dayjs(xksuid.parse(key).ts) < midnight)
         // Server offset
-        //          let d = moment(ksuid.parse(key).date).subtract(4, 'minutes').subtract(15, 'seconds');
+        //          let d = dayjs(xksuid.parse(key).ts).subtract(4, 'minutes').subtract(15, 'seconds');
         //          return d < midnight
         //        })
         .map((key) => day[key]);
 
       records.push(...items);
 
-      currentDate.add(1, 'day');
+      currentDate.add(1, "day");
     }
 
     this.lastCron = `${this.mailer.lastDate()}`;
@@ -358,17 +359,17 @@ export async function reportOnItem(
   for (const [colName, pointer] of Object.entries(
     report.reportConfig.jobMappings,
   )) {
-    if (pointer === 'errorMappings') {
+    if (pointer === "errorMappings") {
       data[colName] = errorType
-        ? (report.reportConfig.errorMappings[errorType] ?? 'Other Error')
-        : 'Success';
+        ? (report.reportConfig.errorMappings[errorType] ?? "Other Error")
+        : "Success";
     }
   }
 
   for (const [colName, pointer] of Object.entries(
     report.reportConfig.jobMappings,
-  ).filter(([_, pointer]) => pointer !== 'errorMappings')) {
-    data[colName] = jp.get(job, pointer) ?? '';
+  ).filter(([_, pointer]) => pointer !== "errorMappings")) {
+    data[colName] = jp.get(job, pointer) ?? "";
   }
 
   await report.oada.put({
@@ -385,7 +386,7 @@ export async function reportOnItem(
 // gatherAttachment method
 export function parseAttachment(buffString: string) {
   const wb = xlsx.read(buffString, {
-    type: 'base64',
+    type: "base64",
   }) as unknown as { Sheets: { Sheet1: any } };
   return xlsx.utils.sheet_to_json(wb.Sheets.Sheet1);
 }

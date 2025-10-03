@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import type { JsonCompatible } from './index.js';
-import type { Runner } from './Runner.js';
+import type { JsonCompatible } from "./index.js";
+import type { Runner } from "./Runner.js";
 
 /**
  * Manages logging updates to a running job.
@@ -39,7 +39,7 @@ export class Updater {
     status: string,
     meta: T,
   ): Promise<void> {
-    if (process.env.OADA_JOBS_LOGGING?.includes('debug')) {
+    if (process.env.OADA_JOBS_LOGGING?.includes("debug")) {
       await this._runner.postUpdate(status, meta);
     }
   }
@@ -48,7 +48,7 @@ export class Updater {
     status: string,
     meta: T,
   ): Promise<void> {
-    if (process.env.OADA_JOBS_LOGGING?.includes('trace')) {
+    if (process.env.OADA_JOBS_LOGGING?.includes("trace")) {
       await this._runner.postUpdate(status, meta);
     }
   }

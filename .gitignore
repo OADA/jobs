@@ -14,6 +14,7 @@ package.lock
 # Build output
 dist
 .test
+bundle.*
 
 # Docker overrides
 docker-compose.override.yml
@@ -122,6 +123,7 @@ dist
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js
 # https://nextjs.org/blog/next-9-1#public-directory-support
+    // @ts-expect-error HACK: just do it
 # public
 
 # vuepress build output
@@ -151,7 +153,4 @@ dist
 
 # yarn v2
 .yarn/*
-!.yarn/releases
-!.yarn/plugins
-!.yarn/versions
 .pnp.*

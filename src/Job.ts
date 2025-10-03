@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
+import type { OADAClient } from "@oada/client";
+import type OADAJob from "@oada/types/oada/service/job.js";
 import {
-  type JobSchema,
   assert as assertOADAJob,
   is as isOADAJob,
-} from '@oada/types/oada/service/job.js';
-import type { OADAClient } from '@oada/client';
-import type OADAJob from '@oada/types/oada/service/job.js';
+  type JobSchema,
+} from "@oada/types/oada/service/job.js";
 
-import type { Json } from './index.js';
-import { error } from './utils.js';
+import type { Json } from "./index.js";
+import { error } from "./utils.js";
 
 export interface FromOada {
   job: Job;
@@ -43,10 +43,10 @@ export interface JobUpdate {
  */
 export class Job {
   static readonly Statuses = [
-    'queued',
-    'running',
-    'success',
-    'failure',
+    "queued",
+    "running",
+    "success",
+    "failure",
   ] as const;
 
   /**
