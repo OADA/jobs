@@ -299,7 +299,8 @@ export class Report {
         ({ data: day } = await this.oada.get({
           path: `${this.path}/day-index/${date}`,
         }));
-      } catch (error: any) {
+      } catch (error: unknown) {
+        // @ts-expect-error Error bs
         if (error.status !== 404) {
           throw error as Error;
         }

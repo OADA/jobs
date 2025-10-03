@@ -120,9 +120,10 @@ export class Service {
       try {
         // @ts-expect-error instanceof OADAClient does not work
         this.#oada = new OADAClient(object.oada!);
-      } catch {
+      } catch (error: unknown) {
         throw new Error(
           `Service constructor requires either an existing OADA client or the connection config to create a new new connection. Attempt to create a new connection with the 'oada' argument failed.`,
+          { cause: error },
         );
       }
     }
@@ -332,19 +333,16 @@ export class Service {
       const queue: Queue = new Queue(this, defaultServiceQueueName); // This.#oada);
       await queue.start(this.opts?.skipQueueOnStartup);
       this.#queue = queue;
-    } catch (error_) {
-      this.log.warn("Invalid queue");
-      this.log.debug("Invalid queue: %O", error_);
-      this.log.error(error_);
+    } catch (err: unknown) {
+      this.log.error(err, "Invalid queue");
     }
   }
 
   async #stopQueue(): Promise<void> {
     try {
       await this.#queue?.stop();
-    } catch (error_) {
-      this.log.warn("Unable to stop queues");
-      this.log.debug("Unable to stop queue %0", error_);
+    } catch (err: unknown) {
+      this.log.warn(err, "Unable to stop queue");
     }
   }
 }

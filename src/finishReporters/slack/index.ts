@@ -16,6 +16,7 @@
  */
 
 import tiny from "tiny-json-http"; // For finishReporters
+
 import type { FinishReporter, Job, Service } from "../.././index.js";
 import { error, info } from "../../utils.js";
 
@@ -88,9 +89,9 @@ export async function onFinish(p: FinishParameters): Promise<void> {
       "Successfully posted message to slack about job with status %s",
       p.status,
     );
-  } catch (error_: unknown) {
+  } catch (err: unknown) {
     error(
-      error_,
+      err,
       "finishReporters#slack: ERROR: failed to post message to slack!",
     );
   }

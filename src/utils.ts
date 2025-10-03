@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import "@oada/pino-debug";
 
 import type { ConnectionResponse, Json, OADAClient } from "@oada/client";
@@ -104,8 +105,8 @@ export async function postUpdate(
         meta,
       },
     });
-  } catch (error_: unknown) {
-    error(error_, `Failed to post update to oada at /${oadaId}/updates`);
-    throw error_;
+  } catch (err: unknown) {
+    error(err, `Failed to post update to oada at /${oadaId}/updates`);
+    throw err;
   }
 }

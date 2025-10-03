@@ -150,9 +150,9 @@ export class Queue {
         await this.#doJobs(jobs as OADAJobs);
         trace(`Existing queue size: ${Object.keys(jobs).length}`);
       }
-    } catch (error_) {
-      error(`[QueueId: ${this._id}] Failed to start WATCH, %O`, error_);
-      throw new Error(`Failed to start watch ${this._id}`);
+    } catch (err: unknown) {
+      error(err, `[QueueId: ${this._id}] Failed to start WATCH`);
+      throw new Error(`Failed to start watch ${this._id}`, { cause: err });
     }
   }
 

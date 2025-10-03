@@ -140,13 +140,14 @@ export class Runner {
         },
         duration,
       );
-    } catch (error_: any) {
-      error(`[job ${this.#job.oadaId}] Failed`);
-      trace(`[job ${this.#job.oadaId}] Error: %O`, error_);
+    } catch (err: unknown) {
+      error(err, `[job ${this.#job.oadaId}] Failed`);
 
-      await (error_ instanceof TimeoutError
-        ? this.finish("failure", error_ as unknown as Json, dayjs(), "timeout")
-        : this.finish("failure", error_, dayjs(), error_.JobError));
+      await (err instanceof TimeoutError
+        ? this.finish("failure", err, dayjs(), "timeout")
+        : err instanceof JobError
+          ? this.finish("failure", err, dayjs(), err.JobError)
+          : this.finish("failure", err as Json, dayjs(), `${err}`));
       const duration = performance.now() - this.#startTime!;
       this.#service.metrics["job-times"].observe(
         {
@@ -176,12 +177,12 @@ export class Runner {
           meta,
         },
       });
-    } catch (error_: unknown) {
+    } catch (err: unknown) {
       error(
-        error_,
+        err,
         `FAILED TO POST UPDATE TO OADA at /${this.#job.oadaId}/updates`,
       );
-      throw error_;
+      throw err;
     }
   }
 
@@ -192,14 +193,14 @@ export class Runner {
    * @param result Arbitrary JSON serializeable result data
    * @param time Finish time of the job
    */
-  public async finish<T extends Json | JsonCompatible<T>>(
+  public async finish<T extends Error | Json | JsonCompatible<T>>(
     status: "success" | "failure",
     result: T,
     time: string | Dayjs,
     failType?: string,
   ): Promise<void> {
     // Update job status and result
-    let data;
+    let data: object;
     data = result === null ? { status } : { status, result };
     if (failType ?? result instanceof Error) {
       data = {
@@ -331,9 +332,9 @@ export class Runner {
           } // Switch
         } // For
       } // If
-    } catch (error_) {
-      error("#finishReporters: ERROR: uncaught exception = %O", error_);
-      throw error_;
+    } catch (err: unknown) {
+      error(err, "#finishReporters: ERROR: uncaught exception");
+      throw err;
     }
   }
 }
